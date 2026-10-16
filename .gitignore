@@ -1,0 +1,33 @@
+# Data (never commit) — keep folder placeholders only
+data/**
+!data/raw/
+!data/interim/
+!data/processed/
+!data/**/.gitkeep
+
+# Models and generated metrics
+models/*
+!models/.gitkeep
+
+# Secrets
+.env
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

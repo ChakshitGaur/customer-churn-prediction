@@ -1,0 +1,25 @@
+[project]
+name = "churn-project"
+version = "0.1.0"
+description = "Customer churn prediction, explanation, and retention recommendations"
+requires-python = ">=3.11"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff.lint.pep8-naming]
+# Allow the scikit-learn convention of capital X for feature matrices.
+extend-ignore-names = ["X", "X_*", "Xt", "Xt_*"]

@@ -1,0 +1,17 @@
+{
+  "train": {
+    "rows": 4929,
+    "share": 0.6998,
+    "churn_rate": 0.2654
+  },
+  "val": {
+    "rows": 1057,
+    "share": 0.1501,
+    "churn_rate": 0.2658
+  },
+  "test": {
+    "rows": 1057,
+    "share": 0.1501,
+    "churn_rate": 0.2649
+  }
+}
