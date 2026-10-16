@@ -1,7 +1,4 @@
-"""Evaluation metrics: ranking quality, top-decile targeting, and business value.
-
-Phase 4 uses the metric functions; Phase 5 adds plots (PR/ROC, lift, calibration).
-"""
+"""Evaluation: ranking metrics, top-decile targeting, business value, and diagnostic plots."""
 
 from __future__ import annotations
 
@@ -9,22 +6,36 @@ import json
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-from sklearn.metrics import (
+import matplotlib
+
+matplotlib.use("Agg")  # headless: figures are saved, never shown
+
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+from matplotlib.axes import Axes  # noqa: E402
+from matplotlib.figure import Figure  # noqa: E402
+from sklearn.calibration import calibration_curve  # noqa: E402
+from sklearn.metrics import (  # noqa: E402
     average_precision_score,
     brier_score_loss,
+    confusion_matrix,
     f1_score,
     make_scorer,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
+    roc_curve,
 )
 
-from src.config import (
+from src.config import (  # noqa: E402
+    FIGURES_DIR,
     OFFER_SUCCESS_RATE,
     RETAINED_CUSTOMER_VALUE,
     RETENTION_OFFER_COST,
     SEED,
+    TARGET_COL,
     TOP_DECILE,
 )
 
@@ -195,4 +206,174 @@ def save_json(obj: Any, path: Path) -> Path:
     """Write ``obj`` as pretty JSON, creating parent folders."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(obj, indent=2))
+    return path
+
+
+# --- Phase 5: plots, gain table, calibration, segments --------------------------
+
+
+def _new_ax(figsize: tuple[float, float] = (6, 4.5)) -> tuple[Figure, Axes]:
+    fig, ax = plt.subplots(figsize=figsize)
+    return fig, ax
+
+
+def plot_pr_curves(y_true: np.ndarray, scores: dict[str, np.ndarray]) -> Figure:
+    """Precision-recall curves for several models, with the no-skill line."""
+    fig, ax = _new_ax()
+    for name, s in scores.items():
+        precision, recall, _ = precision_recall_curve(y_true, s)
+        ax.plot(recall, precision, label=f"{name} (AP {average_precision_score(y_true, s):.3f})")
+    base = float(np.mean(y_true))
+    ax.axhline(base, ls="--", c="grey", label=f"no skill ({base:.3f})")
+    ax.set(xlabel="Recall", ylabel="Precision", title="Precision-recall curve", ylim=(0, 1.02))
+    ax.legend(loc="upper right")
+    return fig
+
+
+def plot_roc_curves(y_true: np.ndarray, scores: dict[str, np.ndarray]) -> Figure:
+    """ROC curves for several models, with the diagonal."""
+    fig, ax = _new_ax()
+    for name, s in scores.items():
+        fpr, tpr, _ = roc_curve(y_true, s)
+        ax.plot(fpr, tpr, label=f"{name} (AUC {roc_auc_score(y_true, s):.3f})")
+    ax.plot([0, 1], [0, 1], ls="--", c="grey", label="random")
+    ax.set(xlabel="False positive rate", ylabel="True positive rate", title="ROC curve")
+    ax.legend(loc="lower right")
+    return fig
+
+
+def plot_confusion(y_true: np.ndarray, y_score: np.ndarray, threshold: float) -> Figure:
+    """Confusion matrix at ``threshold`` with counts and row percentages."""
+    cm = confusion_matrix(y_true, (np.asarray(y_score) >= threshold).astype(int))
+    fig, ax = _new_ax((4.8, 4))
+    ax.imshow(cm, cmap="Blues")
+    row_pct = cm / cm.sum(axis=1, keepdims=True)
+    for i in range(2):
+        for j in range(2):
+            color = "white" if cm[i, j] > cm.max() / 2 else "black"
+            ax.text(j, i, f"{cm[i, j]}\n({row_pct[i, j]:.0%})", ha="center", va="center", c=color)
+    ax.set(
+        xticks=[0, 1],
+        yticks=[0, 1],
+        xticklabels=["stay", "churn"],
+        yticklabels=["stay", "churn"],
+        xlabel="Predicted",
+        ylabel="Actual",
+        title=f"Confusion matrix (threshold {threshold:.2f})",
+    )
+    ax.grid(False)
+    return fig
+
+
+def gain_table(y_true: np.ndarray, y_score: np.ndarray, n_bins: int = 10) -> pd.DataFrame:
+    """Decile table: churn rate, lift, and cumulative share of churners captured.
+
+    Decile 1 holds the highest-risk 10% of customers.
+    """
+    df = pd.DataFrame({"y": np.asarray(y_true), "s": np.asarray(y_score)})
+    df = df.sort_values("s", ascending=False, kind="stable").reset_index(drop=True)
+    df["decile"] = (np.arange(len(df)) * n_bins // len(df)) + 1
+    g = df.groupby("decile").agg(
+        customers=("y", "size"), churners=("y", "sum"), min_score=("s", "min")
+    )
+    g["churn_rate"] = g["churners"] / g["customers"]
+    g["lift"] = g["churn_rate"] / df["y"].mean()
+    g["cum_customers_pct"] = g["customers"].cumsum() / len(df)
+    g["cum_churners_pct"] = g["churners"].cumsum() / df["y"].sum()
+    return g
+
+
+def plot_gain_lift(y_true: np.ndarray, scores: dict[str, np.ndarray]) -> Figure:
+    """Cumulative gain (left) and per-decile lift (right) for several models."""
+    fig, (ax_gain, ax_lift) = plt.subplots(1, 2, figsize=(12, 4.5))
+    width = 0.8 / len(scores)
+    for k, (name, s) in enumerate(scores.items()):
+        g = gain_table(y_true, s)
+        ax_gain.plot(
+            np.r_[0, g["cum_customers_pct"]],
+            np.r_[0, g["cum_churners_pct"]],
+            marker="o",
+            label=name,
+        )
+        offset = (k - (len(scores) - 1) / 2) * width
+        ax_lift.bar(g.index + offset, g["lift"], width, label=name)
+    ax_gain.plot([0, 1], [0, 1], ls="--", c="grey", label="random")
+    ax_gain.set(
+        xlabel="Share of customers contacted (highest risk first)",
+        ylabel="Share of churners captured",
+        title="Cumulative gain",
+    )
+    ax_gain.legend()
+    ax_lift.axhline(1, ls="--", c="grey")
+    ax_lift.set(xlabel="Risk decile (1 = highest)", ylabel="Lift", title="Lift by decile")
+    ax_lift.set_xticks(range(1, 11))
+    ax_lift.legend()
+    fig.tight_layout()
+    return fig
+
+
+def plot_calibration(y_true: np.ndarray, scores: dict[str, np.ndarray], n_bins: int = 10) -> Figure:
+    """Reliability diagram: predicted probability vs. observed churn rate."""
+    fig, ax = _new_ax()
+    for name, s in scores.items():
+        frac_pos, mean_pred = calibration_curve(y_true, s, n_bins=n_bins, strategy="quantile")
+        brier = brier_score_loss(y_true, s)
+        ax.plot(mean_pred, frac_pos, marker="o", label=f"{name} (Brier {brier:.3f})")
+    ax.plot([0, 1], [0, 1], ls="--", c="grey", label="perfectly calibrated")
+    ax.set(xlabel="Mean predicted probability", ylabel="Observed churn rate", title="Calibration")
+    ax.legend(loc="upper left")
+    return fig
+
+
+def calibration_summary(y_true: np.ndarray, y_score: np.ndarray) -> dict[str, float]:
+    """Mean predicted vs. observed churn rate and expected calibration error (10 bins)."""
+    y_true, y_score = np.asarray(y_true), np.asarray(y_score)
+    frac_pos, mean_pred = calibration_curve(y_true, y_score, n_bins=10, strategy="quantile")
+    return {
+        "mean_predicted": float(y_score.mean()),
+        "observed_rate": float(y_true.mean()),
+        "ece": float(np.mean(np.abs(frac_pos - mean_pred))),
+    }
+
+
+def performance_by_segment(
+    df: pd.DataFrame, y_score: np.ndarray, segment_cols: list[str], min_size: int = 30
+) -> pd.DataFrame:
+    """PR-AUC, ROC-AUC, churn rate, and mean score per segment value.
+
+    Args:
+        df: Rows aligned with ``y_score``; must contain the target and ``segment_cols``.
+        y_score: Predicted churn probabilities.
+        segment_cols: Columns to slice by.
+        min_size: Segments smaller than this, or with a single class, get NaN AUCs.
+
+    Returns:
+        One row per (segment column, value).
+    """
+    data = df.reset_index(drop=True).assign(_score=np.asarray(y_score))
+    rows = []
+    for col in segment_cols:
+        for value, part in data.groupby(col, observed=True):
+            y, s = part[TARGET_COL].to_numpy(), part["_score"].to_numpy()
+            ok = len(part) >= min_size and 0 < y.sum() < len(y)
+            rows.append(
+                {
+                    "segment": col,
+                    "value": str(value),
+                    "customers": len(part),
+                    "churn_rate": float(y.mean()),
+                    "mean_score": float(s.mean()),
+                    "pr_auc": float(average_precision_score(y, s)) if ok else np.nan,
+                    "roc_auc": float(roc_auc_score(y, s)) if ok else np.nan,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def save_figure(fig: Figure, name: str) -> Path:
+    """Save to ``reports/figures/<name>.png`` and close the figure."""
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    path = FIGURES_DIR / f"{name}.png"
+    fig.savefig(path, dpi=120, bbox_inches="tight")
+    plt.close(fig)
     return path
