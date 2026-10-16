@@ -31,3 +31,6 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# Customer-level outputs (scored customer lists)
+reports/output/

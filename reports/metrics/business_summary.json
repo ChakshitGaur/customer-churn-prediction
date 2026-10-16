@@ -1,0 +1,109 @@
+{
+  "calibration": {
+    "method": "sigmoid (Platt), fit on validation",
+    "test_before": {
+      "mean_predicted": 0.4182315170764923,
+      "observed_rate": 0.26490066225165565,
+      "ece": 0.15342328820247056
+    },
+    "test_after": {
+      "mean_predicted": 0.2739995298306801,
+      "observed_rate": 0.26490066225165565,
+      "ece": 0.027132592930803855
+    },
+    "brier_before": 0.15903319418430328,
+    "brier_after": 0.13299705619853044
+  },
+  "threshold_raw": 0.58,
+  "threshold_calibrated": 0.3765731679062411,
+  "break_even_probability": 0.3333333333333333,
+  "medium_cutoff": 0.26536822884966527,
+  "test_customers": 1057,
+  "tiers": {
+    "High": {
+      "customers": 349,
+      "mean_probability": 0.5831,
+      "actual_churn_rate": 0.5845,
+      "churners": 204,
+      "share": 0.3302,
+      "share_of_churners": 0.7286
+    },
+    "Medium": {
+      "customers": 97,
+      "mean_probability": 0.3165,
+      "actual_churn_rate": 0.299,
+      "churners": 29,
+      "share": 0.0918,
+      "share_of_churners": 0.1036
+    },
+    "Low": {
+      "customers": 611,
+      "mean_probability": 0.0907,
+      "actual_churn_rate": 0.0769,
+      "churners": 47,
+      "share": 0.5781,
+      "share_of_churners": 0.1679
+    }
+  },
+  "strategies": [
+    {
+      "strategy": "Contact nobody",
+      "contacts": 0,
+      "churners_reached": 0.0,
+      "customers_saved": 0.0,
+      "cost": 0.0,
+      "profit": 0.0,
+      "profit_per_1000_customers": 0.0
+    },
+    {
+      "strategy": "Contact everyone",
+      "contacts": 1057,
+      "churners_reached": 280.0,
+      "customers_saved": 84.0,
+      "cost": 52850.0,
+      "profit": -10850.0,
+      "profit_per_1000_customers": -10265.0
+    },
+    {
+      "strategy": "Random (same number as model)",
+      "contacts": 349,
+      "churners_reached": 92.5,
+      "customers_saved": 27.7,
+      "cost": 17450.0,
+      "profit": -3582.0,
+      "profit_per_1000_customers": -3389.0
+    },
+    {
+      "strategy": "Model targeting",
+      "contacts": 349,
+      "churners_reached": 204.0,
+      "customers_saved": 61.2,
+      "cost": 17450.0,
+      "profit": 13150.0,
+      "profit_per_1000_customers": 12441.0
+    }
+  ],
+  "contacted_actions": {
+    "primary": {
+      "Offer a discount to move to a 1- or 2-year contract": 348,
+      "Review the plan and right-size it to the customer's usage": 1
+    },
+    "secondary": {
+      "Enroll in the first-90-days onboarding and check-in program": 155,
+      "Run a fiber service-quality check and price review": 150,
+      "Review the plan and right-size it to the customer's usage": 29,
+      "Give a one-time credit for switching to auto-pay": 11,
+      "Offer a free 3-month trial of the security + tech support bundle": 4
+    }
+  },
+  "contacted_reason_features": {
+    "Contract": 348,
+    "InternetService": 249,
+    "tenure": 193,
+    "MonthlyCharges": 61,
+    "PaymentMethod": 61,
+    "TotalCharges": 60,
+    "OnlineSecurity": 54,
+    "TechSupport": 21
+  }
+}

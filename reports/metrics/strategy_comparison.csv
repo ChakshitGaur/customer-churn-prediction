@@ -1,0 +1,5 @@
+strategy,contacts,churners_reached,customers_saved,cost,profit,profit_per_1000_customers
+Contact nobody,0,0.0,0.0,0.0,0.0,0.0
+Contact everyone,1057,280.0,84.0,52850.0,-10850.0,-10265.0
+Random (same number as model),349,92.5,27.7,17450.0,-3582.0,-3389.0
+Model targeting,349,204.0,61.2,17450.0,13150.0,12441.0
