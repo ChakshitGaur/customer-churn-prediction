@@ -1,4 +1,4 @@
-"""Model tests. Phase 0: reproducibility + logging. Phase 4 adds training/metric tests."""
+"""Model-layer tests: metrics, models, SHAP, calibration, actions, business impact."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from src.features.build_features import ADDON_COLS
 from src.features.pipeline import make_model_pipeline
 from src.models.analysis import example_customers
 from src.models.baseline import make_baseline
+from src.models.business import strategy_comparison, tier_summary
 from src.models.evaluate import (
     best_profit_threshold,
     bootstrap_pr_auc_diff,
@@ -24,6 +25,15 @@ from src.models.evaluate import (
     lift_at_top,
     performance_by_segment,
     recall_at_top,
+)
+from src.models.predict import CalibratedModel, build_risk_list, calibrate, risk_tier
+from src.models.recommend import (
+    ACTION_RULES,
+    DEFAULT_ACTION,
+    MEDIUM_ACTION,
+    NO_ACTION,
+    matched_actions,
+    recommend_actions,
 )
 from src.models.train import candidate_models, cross_validate_models
 from src.models.tune import SEARCH_SPACES
@@ -222,3 +232,113 @@ def test_grouped_shap_is_exact_and_reasons_are_readable() -> None:
     assert len(reasons) == len(X) and all(len(r) <= 3 for r in reasons)
     riskiest = int(np.argmax(pipe.predict_proba(X)[:, 1]))
     assert any(r.startswith("Contract = ") or r.startswith("tenure = ") for r in reasons[riskiest])
+
+
+# --- Phase 6: recommendations ---------------------------------------------------
+
+
+def test_matched_actions_dedupes_and_skips_unknown_reasons() -> None:
+    reasons = [
+        "Contract = Month-to-month",
+        "gender = Male",
+        "OnlineSecurity = No",
+        "TechSupport = No",
+    ]
+    actions = matched_actions(reasons)
+    assert actions[0] == ACTION_RULES[("Contract", "Month-to-month")]
+    assert len(actions) == 2  # security and tech support share one bundle action
+
+
+def test_recommend_actions_by_tier() -> None:
+    reasons = ["Contract = Month-to-month", "tenure = 2 months", "InternetService = Fiber optic"]
+    primary, secondary = recommend_actions(reasons, "High")
+    assert primary == ACTION_RULES[("Contract", "Month-to-month")]
+    assert secondary == ACTION_RULES[("tenure", None)]
+    assert recommend_actions(reasons, "Medium") == (f"{MEDIUM_ACTION} Contract", "")
+    assert recommend_actions(reasons, "Low") == (NO_ACTION, "")
+    assert recommend_actions([], "High") == (NO_ACTION, "")
+    assert recommend_actions(["gender = Male"], "High") == (DEFAULT_ACTION, "")
+
+
+# --- Phase 6: calibration, tiers, risk list -------------------------------------
+
+
+def _calibrated_toy() -> tuple[CalibratedModel, pd.DataFrame, pd.Series]:
+    from xgboost import XGBClassifier
+
+    X, y = _toy_xy(600)
+    pipe = make_model_pipeline(
+        XGBClassifier(n_estimators=50, max_depth=3, scale_pos_weight=3, random_state=config.SEED),
+        engineered=False,
+    ).fit(X.iloc[:400], y.iloc[:400])
+    final = {"pipeline": pipe, "threshold": 0.6, "name": "toy"}
+    model = calibrate(final, X.iloc[400:500], y.iloc[400:500], medium_cutoff=float(y.mean()))
+    return model, X.iloc[500:], y.iloc[500:]
+
+
+def test_calibrated_threshold_selects_same_customers_and_keeps_ranking() -> None:
+    model, X, _ = _calibrated_toy()
+    raw = model.raw.predict_proba(X)[:, 1]
+    cal = model.predict_proba(X)
+    np.testing.assert_array_equal(raw >= model.raw_threshold, cal >= model.threshold)
+    order_raw = np.argsort(-raw, kind="stable")
+    assert np.all(np.diff(cal[order_raw]) <= 1e-12)  # calibrated scores keep the raw order
+
+
+def test_risk_tier_boundaries() -> None:
+    tiers = risk_tier(np.array([0.9, 0.4, 0.3, 0.1]), threshold=0.4, medium_cutoff=0.25)
+    assert tiers.tolist() == ["High", "High", "Medium", "Low"]
+
+
+def test_build_risk_list_is_ranked_and_complete() -> None:
+    model, X, y = _calibrated_toy()
+    customers = X.assign(**{config.ID_COL: [f"c{i}" for i in range(len(X))]}, Churn=y.to_numpy())
+    rl = build_risk_list(model, customers)
+    assert len(rl) == len(customers) and rl[config.ID_COL].is_unique
+    assert rl["rank"].tolist() == list(range(1, len(rl) + 1))
+    assert rl["churn_probability"].is_monotonic_decreasing
+    assert set(rl["risk_tier"]) <= {"High", "Medium", "Low"}
+    assert (rl.loc[rl["risk_tier"] == "Low", "primary_action"] == NO_ACTION).all()
+    assert (rl["contact"] == (rl["risk_tier"] == "High")).all()
+    assert "Churn" not in rl.columns  # the actual outcome never leaks into the list
+
+
+# --- Phase 6: business impact ----------------------------------------------------
+
+
+def test_strategy_comparison_math() -> None:
+    y = np.array([1, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+    contact = np.array([True, True, False, False, False, False, False, False, False, False])
+    t = strategy_comparison(y, contact).set_index("strategy")
+    value_per_save = config.RETAINED_CUSTOMER_VALUE * config.OFFER_SUCCESS_RATE
+    cost = config.RETENTION_OFFER_COST
+    assert t.loc["Contact nobody", "profit"] == 0
+    assert t.loc["Model targeting", "profit"] == pytest.approx(2 * value_per_save - 2 * cost)
+    assert t.loc["Random (same number as model)", "churners_reached"] == pytest.approx(0.4)
+    assert t.loc["Contact everyone", "profit"] == pytest.approx(2 * value_per_save - 10 * cost)
+
+
+def test_tier_summary_shares_add_up() -> None:
+    rl = pd.DataFrame(
+        {
+            "customerID": list("abcdef"),
+            "churn_probability": [0.9, 0.8, 0.4, 0.3, 0.1, 0.05],
+            "risk_tier": ["High", "High", "Medium", "Medium", "Low", "Low"],
+        }
+    )
+    y_by_id = pd.Series([1, 1, 0, 1, 0, 0], index=list("abcdef"))
+    t = tier_summary(rl, y_by_id)
+    assert t["share"].sum() == pytest.approx(1.0)
+    assert t["share_of_churners"].sum() == pytest.approx(1.0)
+    assert t.loc["High", "actual_churn_rate"] == 1.0
+
+
+def test_download_skips_when_file_exists(tmp_path, monkeypatch) -> None:
+    import src.data.download as dl
+
+    existing = tmp_path / "telco.csv"
+    existing.write_text("already here")
+    monkeypatch.setattr(dl, "RAW_DATA_FILE", existing)
+    monkeypatch.setattr(dl.urllib.request, "urlopen", lambda *a, **k: pytest.fail("no network"))
+    dl.download()
+    assert existing.read_text() == "already here"

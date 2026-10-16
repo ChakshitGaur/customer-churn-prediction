@@ -108,7 +108,6 @@ def cross_validate_models(
                 vals = scores[f"test_{metric}"]
                 row[f"{metric}_mean"] = float(vals.mean())
                 row[f"{metric}_std"] = float(vals.std())
-            row["fit_time_s"] = float(scores["fit_time"].mean())
             rows.append(row)
             logger.info(
                 "CV %-14s %-10s PR-AUC %.4f ± %.4f | ROC-AUC %.4f | recall@10%% %.4f",
