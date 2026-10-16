@@ -1,0 +1,65 @@
+{
+  "threshold": 0.58,
+  "calibration": {
+    "xgboost (final)": {
+      "mean_predicted": 0.4182315170764923,
+      "observed_rate": 0.26490066225165565,
+      "ece": 0.15342328820247056
+    },
+    "logreg baseline": {
+      "mean_predicted": 0.4175891019585131,
+      "observed_rate": 0.26490066225165565,
+      "ece": 0.15283290149285392
+    }
+  },
+  "top_decile": {
+    "customers": 106.0,
+    "churners": 82.0,
+    "min_score": 0.7832778096199036,
+    "churn_rate": 0.7735849056603774,
+    "lift": 2.9202830188679245,
+    "cum_customers_pct": 0.10028382213812677,
+    "cum_churners_pct": 0.29285714285714287
+  },
+  "top3_deciles_capture": 0.6714285714285714,
+  "shap_top_features": {
+    "Contract": 0.33649998903274536,
+    "tenure": 0.11800000071525574,
+    "InternetService": 0.09849999845027924,
+    "MonthlyCharges": 0.08340000361204147,
+    "OnlineSecurity": 0.07720000296831131,
+    "TechSupport": 0.06759999692440033,
+    "PaymentMethod": 0.048900000751018524,
+    "TotalCharges": 0.04809999838471413,
+    "PaperlessBilling": 0.02879999950528145,
+    "StreamingMovies": 0.02239999920129776
+  },
+  "example_customers": {
+    "high_risk": {
+      "customer_id": "5178-LMXOP",
+      "probability": 0.8948408961296082,
+      "actual_churn": 1,
+      "top_reasons": [
+        "Contract = Month-to-month",
+        "tenure = 1 month",
+        "InternetService = Fiber optic"
+      ]
+    },
+    "borderline": {
+      "customer_id": "6227-HWPWX",
+      "probability": 0.5798562169075012,
+      "actual_churn": 1,
+      "top_reasons": [
+        "Contract = Month-to-month",
+        "InternetService = Fiber optic",
+        "OnlineSecurity = No"
+      ]
+    },
+    "low_risk": {
+      "customer_id": "0794-YVSGE",
+      "probability": 0.0736171081662178,
+      "actual_churn": 0,
+      "top_reasons": []
+    }
+  }
+}

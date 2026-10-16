@@ -16,7 +16,7 @@ _To be completed in Phase 1 (dataset, business context, churn definition)._
 | 2 | Cleaning + leakage-safe train/val/test split | ✅ |
 | 3 | Feature engineering in a scikit-learn Pipeline | ✅ |
 | 4 | Baseline → RF / XGBoost / LightGBM, tuning, cost-based threshold | ✅ |
-| 5 | Evaluation + SHAP explainability | ⏳ |
+| 5 | Evaluation + SHAP explainability | ✅ |
 | 6 | Ranked risk list + retention recommendations | ⏳ |
 | 7 | Streamlit dashboard + monitoring plan (optional) | ⏳ |
 
