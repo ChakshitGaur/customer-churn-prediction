@@ -1,0 +1,71 @@
+{
+  "logreg": {
+    "model": "logreg",
+    "best_params": {
+      "model__C": 1.1462107403425035,
+      "model__l1_ratio": 0.5,
+      "model__solver": "saga",
+      "prep": "raw"
+    },
+    "cv_pr_auc_mean": 0.6642423768196746,
+    "cv_pr_auc_std": 0.022463242415555085,
+    "cv_roc_auc_mean": 0.8469065789540327,
+    "cv_recall_top10_mean": 0.28518908484688954,
+    "val": {
+      "pr_auc": 0.6244069747908668,
+      "roc_auc": 0.8291769086840076,
+      "recall_top10": 0.2704626334519573,
+      "lift_top10": 2.696971731686027,
+      "brier": 0.16975203719855475,
+      "base_rate": 0.26584673604541154
+    }
+  },
+  "random_forest": {
+    "model": "random_forest",
+    "best_params": {
+      "model__max_depth": 12,
+      "model__max_features": 0.3,
+      "model__min_samples_leaf": 30,
+      "model__n_estimators": 601,
+      "prep": "raw"
+    },
+    "cv_pr_auc_mean": 0.6693798446386074,
+    "cv_pr_auc_std": 0.024258559781888935,
+    "cv_roc_auc_mean": 0.8483080217437975,
+    "cv_recall_top10_mean": 0.28898833026234977,
+    "val": {
+      "pr_auc": 0.637608135410154,
+      "roc_auc": 0.8342535862347287,
+      "recall_top10": 0.2846975088967972,
+      "lift_top10": 2.8389176123010813,
+      "brier": 0.1614118460813283,
+      "base_rate": 0.26584673604541154
+    }
+  },
+  "xgboost": {
+    "model": "xgboost",
+    "best_params": {
+      "model__colsample_bytree": 0.764526911140863,
+      "model__gamma": 0.34104824737458306,
+      "model__learning_rate": 0.006356039080497238,
+      "model__max_depth": 5,
+      "model__min_child_weight": 14,
+      "model__n_estimators": 341,
+      "model__reg_lambda": 1.0970529245749174,
+      "model__subsample": 0.6063865008880857,
+      "prep": "raw"
+    },
+    "cv_pr_auc_mean": 0.6717489169327544,
+    "cv_pr_auc_std": 0.023947902558736398,
+    "cv_roc_auc_mean": 0.8489137316024251,
+    "cv_recall_top10_mean": 0.2905267468047147,
+    "val": {
+      "pr_auc": 0.6409558391261387,
+      "roc_auc": 0.835810525736508,
+      "recall_top10": 0.28113879003558717,
+      "lift_top10": 2.8034311421473173,
+      "brier": 0.16303801536560059,
+      "base_rate": 0.26584673604541154
+    }
+  }
+}
