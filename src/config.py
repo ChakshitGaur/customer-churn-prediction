@@ -44,5 +44,8 @@ TOP_DECILE: float = 0.10  # for "recall in top 10% risk" and lift
 # --- Business costs (placeholders until provided) ---------------------------
 RETENTION_OFFER_COST: float = 50.0  # cost of contacting/offering one customer
 RETAINED_CUSTOMER_VALUE: float = 500.0  # value of keeping a would-be churner
+OFFER_SUCCESS_RATE: float = 0.30  # share of contacted would-be churners who then stay
+# Break-even probability for a perfectly calibrated model:
+#   cost / (value * success) = 50 / (500 * 0.30) = 0.33
 
 LOG_FORMAT: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"

@@ -27,7 +27,7 @@ Predict which customers will churn, explain why, and turn predictions into reten
 |---|---|
 | Tests | `.venv\Scripts\python -m pytest` |
 | Lint | `.venv\Scripts\python -m ruff check src tests` and `... -m black --check src tests` |
-| Pipeline | `.venv\Scripts\python -m src.pipeline` (from Phase 2) |
+| Pipeline | `.venv\Scripts\python -m src.pipeline` (~6 min, includes tuning) |
 | App | `.venv\Scripts\python -m streamlit run app/app.py` (Phase 7) |
 
 ## Git

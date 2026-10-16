@@ -68,42 +68,51 @@ def split_xy(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     return df.drop(columns=[ID_COL, TARGET_COL]), df[TARGET_COL]
 
 
-def build_preprocessor() -> Pipeline:
+def build_preprocessor(engineered: bool = True) -> Pipeline:
     """Create the unfitted preprocessing pipeline.
 
     Steps:
-        1. ``features``: stateless domain features (:class:`FeatureBuilder`).
+        1. ``features``: stateless domain features (:class:`FeatureBuilder`); skipped when
+           ``engineered=False``.
         2. ``encode``: StandardScaler on numeric columns, one-hot on categoricals
            (``handle_unknown="ignore"`` so unseen categories in val/test don't crash),
            binary flags passed through. Unlisted columns are dropped.
 
+    Args:
+        engineered: If False, use raw columns only (for feature-set comparison).
+
     Returns:
         An unfitted :class:`~sklearn.pipeline.Pipeline` that outputs a pandas DataFrame.
     """
+    numeric = NUMERIC_FEATURES if engineered else RAW_NUMERIC
+    categorical = CATEGORICAL_FEATURES if engineered else RAW_CATEGORICAL
+    binary = BINARY_FEATURES if engineered else RAW_BINARY
     encode = ColumnTransformer(
         transformers=[
-            ("num", StandardScaler(), NUMERIC_FEATURES),
+            ("num", StandardScaler(), numeric),
             (
                 "cat",
                 OneHotEncoder(handle_unknown="ignore", drop="if_binary", sparse_output=False),
-                CATEGORICAL_FEATURES,
+                categorical,
             ),
-            ("bin", "passthrough", BINARY_FEATURES),
+            ("bin", "passthrough", binary),
         ],
         remainder="drop",
         verbose_feature_names_out=True,
     )
-    pipe = Pipeline([("features", FeatureBuilder()), ("encode", encode)])
+    steps = [("features", FeatureBuilder())] if engineered else []
+    pipe = Pipeline([*steps, ("encode", encode)])
     return pipe.set_output(transform="pandas")
 
 
-def make_model_pipeline(estimator: BaseEstimator) -> Pipeline:
+def make_model_pipeline(estimator: BaseEstimator, engineered: bool = True) -> Pipeline:
     """Chain the preprocessor with a model so CV refits preprocessing inside each fold.
 
     Args:
         estimator: Any scikit-learn compatible classifier.
+        engineered: Whether to include engineered features.
 
     Returns:
         ``Pipeline([("prep", preprocessor), ("model", estimator)])``.
     """
-    return Pipeline([("prep", build_preprocessor()), ("model", estimator)])
+    return Pipeline([("prep", build_preprocessor(engineered)), ("model", estimator)])
