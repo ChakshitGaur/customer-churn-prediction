@@ -26,9 +26,14 @@ Predict which customers will churn, explain why, and turn predictions into reten
 | Task | Command |
 |---|---|
 | Tests | `.venv\Scripts\python -m pytest` |
-| Lint | `.venv\Scripts\python -m ruff check src tests` and `... -m black --check src tests` |
+| Lint | `.venv\Scripts\python -m ruff check app src tests` and `... -m black --check app src tests` |
+| Data | `.venv\Scripts\python -m src.data.download` (fresh clone only) |
 | Pipeline | `.venv\Scripts\python -m src.pipeline` (~6 min, includes tuning) |
-| App | `.venv\Scripts\python -m streamlit run app/app.py` (Phase 7) |
+| App | `.venv\Scripts\python -m streamlit run app/app.py` (run from project root; `.streamlit/config.toml` binds it to localhost) |
+
+## App rules
+- `app/app.py` is layout only; all data logic lives in `app/helpers.py` (tested in `tests/test_app.py`).
+- Drift checks use `src/models/monitor.py`; thresholds and response steps are in `reports/monitoring_plan.md`.
 
 ## Git
 - Never push directly to `main`; use a branch + PR. The user approves merges.

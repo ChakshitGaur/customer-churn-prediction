@@ -32,7 +32,8 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         1. Strip whitespace from all text columns.
         2. ``TotalCharges``: blank strings -> 0.0 (only tenure-0 customers, not yet billed),
            then cast to float.
-        3. Encode the target ``Churn``: "Yes" -> 1, "No" -> 0.
+        3. Encode the target ``Churn``: "Yes" -> 1, "No" -> 0 (skipped when the column is
+           absent, e.g. current customers being scored).
         4. Drop any known post-churn leakage columns.
         5. Drop exact duplicate rows (none expected; logged if found).
 
@@ -52,14 +53,20 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     for col in text_cols:
         out[col] = out[col].str.strip()
 
-    blank = out["TotalCharges"].eq("") | out["TotalCharges"].isna()
-    if (out.loc[blank, "tenure"] > 0).any():
+    total = out["TotalCharges"]
+    blank = total.isna()
+    if pd.api.types.is_string_dtype(total) or total.dtype == object:
+        blank |= total.astype("string").str.strip().eq("").fillna(False)
+    if (out.loc[blank, "tenure"].astype(float) > 0).any():
         raise ValueError("Blank TotalCharges found for customers with tenure > 0")
-    out.loc[blank, "TotalCharges"] = "0"
-    out["TotalCharges"] = out["TotalCharges"].astype(float)
+    out["TotalCharges"] = pd.to_numeric(total.where(~blank, 0)).astype(float)
     logger.info("TotalCharges: filled %d blank values (tenure 0) with 0.0", int(blank.sum()))
 
-    out[TARGET_COL] = out[TARGET_COL].map({"Yes": 1, "No": 0}).astype(int)
+    if TARGET_COL in out.columns:
+        target = out[TARGET_COL]
+        if not pd.api.types.is_numeric_dtype(target):
+            target = target.map({"Yes": 1, "No": 0})
+        out[TARGET_COL] = target.astype(int)
 
     leaked = [c for c in LEAKAGE_COLS if c in out.columns]
     if leaked:
