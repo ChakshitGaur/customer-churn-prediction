@@ -1,0 +1,8 @@
+# Local-only dashboard: never listen on external network interfaces.
+[server]
+address = "localhost"
+port = 8501
+headless = true
+
+[browser]
+gatherUsageStats = false

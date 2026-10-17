@@ -52,6 +52,22 @@ Every customer in the ranked list gets a calibrated churn probability, a risk ti
 
 Full findings and recommendations: **[reports/final_report.md](reports/final_report.md)**
 
+## Dashboard
+
+A Streamlit app with three tabs:
+- **Single customer:** a form gives the calibrated churn probability, risk tier, top 3 SHAP reasons, recommended actions, a SHAP waterfall and a "what if they sign a 1-year contract?" estimate.
+- **Batch scoring:** upload a CSV (or use the built-in sample) to get a ranked list with tier filters and a CSV download, plus a data-drift check (PSI) against the training data.
+- **Model insights:** headline metrics, risk tiers, targeting strategies and the key charts.
+
+<p>
+  <img src="reports/figures/dashboard_single_customer.jpg" width="800" alt="Dashboard: scoring a single customer">
+</p>
+<p>
+  <img src="reports/figures/dashboard_insights.jpg" width="800" alt="Dashboard: model insights tab">
+</p>
+
+How the model would be watched in production (drift alerts, calibration checks, campaign uplift, retraining triggers): **[reports/monitoring_plan.md](reports/monitoring_plan.md)**
+
 ## Approach
 
 | Phase | What | Status |
@@ -63,7 +79,7 @@ Full findings and recommendations: **[reports/final_report.md](reports/final_rep
 | 4 | Baseline → RF / XGBoost / LightGBM, tuning, cost-based threshold | ✅ |
 | 5 | Evaluation + SHAP explainability | ✅ |
 | 6 | Calibration, ranked risk list, retention recommendations | ✅ |
-| 7 | Streamlit dashboard + monitoring plan (optional) | ⏳ |
+| 7 | Streamlit dashboard + monitoring plan | ✅ |
 
 **Keeping the evaluation honest:**
 - All preprocessing is fit inside cross-validation folds on the training split only.
@@ -83,12 +99,14 @@ python -m venv .venv
 .venv\Scripts\python -m src.data.download
 .venv\Scripts\python -m src.pipeline
 .venv\Scripts\python -m pytest
+.venv\Scripts\python -m streamlit run app/app.py
 ```
 
 - The pipeline runs all 6 stages in about 6 minutes: clean → split → features → modeling → evaluation and SHAP → calibration and risk list.
 - **Outputs:** metrics in `reports/metrics/`, figures in `reports/figures/`, and the customer list in `reports/output/customer_risk_list.csv` (gitignored).
 - **Business assumptions** (offer cost, customer value, success rate) are placeholders in [`src/config.py`](src/config.py). Change them and rerun.
-- With GNU Make installed: `make setup`, `make test`, `make lint`, `make pipeline`.
+- The dashboard opens at http://localhost:8501. It needs the pipeline outputs in `models/`, and `.streamlit/config.toml` keeps it local-only.
+- With GNU Make installed: `make setup`, `make test`, `make lint`, `make pipeline`, `make app`.
 
 ## Project structure
 ```
@@ -101,22 +119,26 @@ churn-project/
 │   ├── data/                      # download, load, clean, split (+ leakage checks)
 │   ├── features/                  # build_features, preprocessing pipeline
 │   ├── models/                    # baseline, train, tune, select, evaluate, analysis,
-│   │                              # predict (calibration + risk list), recommend, business
+│   │                              # predict (calibration + risk list), recommend, business,
+│   │                              # monitor (PSI drift)
 │   ├── explain/                   # SHAP: global, per-customer, plain-language reasons
 │   └── utils/                     # logging, seeding
+├── app/                           # Streamlit dashboard (app.py) + tested helpers
 ├── models/                        # trained models (gitignored)
 ├── reports/
 │   ├── figures/                   # EDA, features, evaluation, SHAP, calibration plots
 │   ├── metrics/                   # CV, tuning, test, segment, SHAP, business tables
-│   └── final_report.md            # findings and recommendations
+│   ├── final_report.md            # findings and recommendations
+│   └── monitoring_plan.md         # production monitoring and retraining triggers
 └── tests/                         # pytest suite
 ```
 
 ## Tech stack
-Python 3.14 · pandas · scikit-learn · XGBoost · LightGBM · SHAP · matplotlib/seaborn · pytest · ruff · black
+Python 3.14 · pandas · scikit-learn · XGBoost · LightGBM · SHAP · Streamlit · matplotlib/seaborn · pytest · ruff · black
 
 ## Resume bullets
 - Built an end-to-end churn prediction pipeline (Python, scikit-learn, XGBoost) on 7,043 telecom customers. It reaches PR-AUC 0.671 and 2.9× lift in the top risk decile, beating a logistic regression baseline with a bootstrap-validated margin.
 - Designed a cost-based targeting strategy with calibrated probabilities (calibration error 0.153 → 0.027). It reaches 73% of churners by contacting 33% of customers, earning about 12.4K per 1,000 customers vs a loss under random targeting.
 - Explained predictions with SHAP, turning each customer's top 3 churn drivers into tiered retention actions. Identified contract type, early tenure and fiber service as the main levers.
-- Kept evaluation leakage-safe: train-only preprocessing inside CV, validation-only model and threshold selection, a single test evaluation, and 60+ pytest tests, including a regression test for a feature-labelling bug.
+- Shipped a Streamlit dashboard for single and batch scoring with SHAP explanations and PSI drift checks, plus a production monitoring plan with alert thresholds and retraining triggers.
+- Kept evaluation leakage-safe: train-only preprocessing inside CV, validation-only model and threshold selection, a single test evaluation, and 80+ pytest tests, including a regression test for a feature-labelling bug.

@@ -18,12 +18,12 @@ setup:
 	$(PY) -m pip install -r requirements.txt
 
 lint:
-	$(PY) -m ruff check src tests
-	$(PY) -m black --check src tests
+	$(PY) -m ruff check app src tests
+	$(PY) -m black --check app src tests
 
 format:
-	$(PY) -m ruff check --fix src tests
-	$(PY) -m black src tests
+	$(PY) -m ruff check --fix app src tests
+	$(PY) -m black app src tests
 
 test:
 	$(PY) -m pytest
