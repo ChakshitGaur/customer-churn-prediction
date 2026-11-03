@@ -342,3 +342,53 @@ def test_download_skips_when_file_exists(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(dl.urllib.request, "urlopen", lambda *a, **k: pytest.fail("no network"))
     dl.download()
     assert existing.read_text() == "already here"
+
+
+# --- Repeated CV --------------------------------------------------------------
+
+
+def test_corrected_paired_test_is_wider_than_naive() -> None:
+    from scipy import stats
+
+    from src.models.repeated_cv import corrected_paired_test
+
+    diffs = np.array([0.02, 0.01, 0.03, -0.01, 0.02, 0.00, 0.01, 0.02, 0.03, 0.01])
+    out = corrected_paired_test(diffs, n_train=800, n_test=200)
+    naive_se = diffs.std(ddof=1) / np.sqrt(len(diffs))
+    assert out["se"] > naive_se
+    assert out["ci_low"] < out["mean_diff"] < out["ci_high"]
+    assert out["win_rate"] == pytest.approx(0.8)
+    assert out["p_value"] > stats.ttest_1samp(diffs, 0).pvalue
+
+
+def test_corrected_paired_test_handles_identical_models() -> None:
+    from src.models.repeated_cv import corrected_paired_test
+
+    out = corrected_paired_test(np.zeros(10), n_train=800, n_test=200)
+    assert out["mean_diff"] == 0.0
+    assert out["p_value"] == 1.0
+
+
+def test_repeated_cv_scores_shape_and_pairing() -> None:
+    from src.models.repeated_cv import METRICS, repeated_cv_scores, summarize
+
+    X, y = _toy_xy()
+    pipes = {
+        "baseline": make_baseline(),
+        "final": make_model_pipeline(candidate_models(y)["logreg"], engineered=False),
+    }
+    scores = repeated_cv_scores(pipes, X, y, n_splits=3, n_repeats=2)
+    assert len(scores) == 2 * 3 * 2  # models x folds x repeats
+    assert set(METRICS) <= set(scores.columns)
+    summary = summarize(scores, n_train=len(X) * 2 // 3, n_test=len(X) // 3)
+    assert summary["n_folds_total"] == 6
+    assert "final_minus_baseline" in summary["paired"]
+
+
+def test_make_tuned_pipeline_applies_params() -> None:
+    from src.models.repeated_cv import make_tuned_pipeline
+
+    _, y = _toy_xy()
+    pipe = make_tuned_pipeline("logreg", {"model__C": 0.5, "prep": "raw"}, y)
+    assert pipe.named_steps["model"].C == 0.5
+    assert "features" not in pipe.named_steps["prep"].named_steps
