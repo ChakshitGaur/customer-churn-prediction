@@ -164,6 +164,19 @@ def model_notices(
                 "Run `python -m src.pipeline` (or `python -m src.models.model_card`) to create it.",
             )
         ]
+    if not (
+        isinstance(card.get("data"), dict)
+        and "sha256" in card["data"]
+        and isinstance(card.get("code"), dict)
+        and isinstance(card["code"].get("libraries"), dict)
+    ):
+        return [
+            Notice(
+                "info",
+                "The model card is incomplete or from an older version, so the model cannot be "
+                "checked. Run `python -m src.models.model_card` to rewrite it.",
+            )
+        ]
     notices: list[Notice] = []
 
     data_hash = _current_data_hash(raw_file)
@@ -223,8 +236,11 @@ def provenance_caption(card: dict[str, Any] | None) -> str:
     if card is None:
         return "Provenance unknown (no model card)."
     trained = (card.get("model_trained_at") or "unknown date")[:10]
-    commit = card["code"].get("commit")
-    parts = [f"Trained {trained}", f"data {card['data']['sha256'][:8]}"]
+    commit = (card.get("code") or {}).get("commit")
+    sha = (card.get("data") or {}).get("sha256")
+    parts = [f"Trained {trained}"]
+    if sha:
+        parts.append(f"data {sha[:8]}")
     if commit:
         parts.append(f"commit {commit[:7]}")
     return " · ".join(parts)

@@ -231,3 +231,11 @@ def test_provenance_caption(tmp_path) -> None:  # type: ignore[no-untyped-def]
     assert text.startswith("Trained 20") and f"data {card['data']['sha256'][:8]}" in text
     assert helpers.provenance_caption(None) == "Provenance unknown (no model card)."
     assert helpers.load_model_card(tmp_path / "missing.json") is None
+
+
+def test_incomplete_model_card_gives_a_note_not_a_crash(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    card_path = tmp_path / "model_card.json"
+    card_path.write_text(json.dumps({"model": {"name": "xgboost"}}))
+    notices = helpers.model_notices(card_path, tmp_path / "raw.csv", tmp_path / "m")
+    assert [n.level for n in notices] == ["info"] and "incomplete" in notices[0].message
+    assert helpers.provenance_caption({"model": {}}) == "Trained unknown date"
