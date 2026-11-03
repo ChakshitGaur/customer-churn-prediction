@@ -545,3 +545,79 @@ def test_compare_scores_pairs_ebm_against_each_other_model() -> None:
     assert set(out["per_model"]) == {"baseline", "ebm"}
     assert set(out["paired"]) == {"ebm_minus_baseline"}
     assert set(out["paired"]["ebm_minus_baseline"]) >= {"pr_auc", "roc_auc"}
+
+
+# --- Profit sensitivity -------------------------------------------------------
+
+
+def test_profit_per_1000_matches_hand_calculation() -> None:
+    from src.models.sensitivity import profit_per_1000
+
+    y = np.array([1, 1, 0, 0, 1, 0, 0, 0, 0, 0])
+    s = np.array([0.9, 0.8, 0.7, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+    profit, contact = profit_per_1000(y, s, 0.5, cost=10.0, value=100.0, rate=0.5)
+    # contacts: 3 customers, 2 true churners -> 2 * 100 * 0.5 - 3 * 10 = 70 over 10 customers
+    assert profit == pytest.approx(1000 * 70 / 10)
+    assert contact == pytest.approx(0.3)
+
+
+def test_profit_grid_is_monotone_in_success_rate_and_flags_break_even() -> None:
+    from src.models.sensitivity import profit_grid, summarize_grid
+
+    rng = np.random.default_rng(0)
+    y = (rng.random(400) < 0.3).astype(int)
+    s = np.clip(0.3 + 0.4 * (y - 0.3) + rng.normal(0, 0.15, 400), 0.01, 0.99)
+    grid = profit_grid(y, s, 0.35, costs=(50.0,), values=(500.0,), rates=(0.1, 0.3, 0.5))
+    assert len(grid) == 3
+    assert grid["best_profit_per_1000"].is_monotonic_increasing
+    assert (grid["best_profit_per_1000"] >= grid["kept_threshold_profit_per_1000"] - 1e-9).all()
+    assert grid["break_even_probability"].iloc[0] == pytest.approx(50 / (500 * 0.1))
+    out = summarize_grid(grid)
+    assert out["scenarios"] == 3 and 0 <= out["targeting_profitable_share"] <= 1
+
+
+# --- Subgroup report ----------------------------------------------------------
+
+
+def test_subgroup_report_metrics_and_flags() -> None:
+    from src.models.fairness import subgroup_report
+
+    # Group "a": scores track the labels. Group "b": the model misses every churner.
+    df = pd.DataFrame(
+        {
+            "grp": ["a"] * 10 + ["b"] * 10,
+            config.TARGET_COL: [1, 1, 0, 0, 0, 0, 0, 0, 0, 0] + [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+    )
+    scores = np.array([0.9, 0.8, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] + [0.1] * 10)
+    out = subgroup_report(df, scores, threshold=0.5, group_cols=["grp"]).set_index("value")
+    assert out.loc["a", "recall"] == pytest.approx(1.0)
+    assert out.loc["b", "recall"] == pytest.approx(0.0)
+    assert out.loc["a", "contact_rate"] == pytest.approx(0.2)
+    assert out.loc["a", "precision"] == pytest.approx(1.0)
+    assert "recall" in out.loc["b", "flags"]
+    assert out.loc["b", "calibration_gap"] == pytest.approx(-0.1)
+    assert out.loc["a", "customers"] == 10
+
+
+# --- SHAP for linear models ---------------------------------------------------
+
+
+def test_compute_shap_supports_logistic_regression_in_log_odds() -> None:
+    X, y = _toy_xy()
+    pipe = make_baseline().fit(X, y)
+    sv = compute_shap(pipe, X.head(50))
+    grouped = group_shap(sv)
+    assert len(grouped) == 50 and "Contract" in grouped.columns
+    # Contributions plus the base value reconstruct the model's log-odds.
+    proba = pipe.predict_proba(X.head(50))[:, 1]
+    logit = np.log(proba / (1 - proba))
+    recon = sv.values.sum(axis=1) + np.ravel(sv.base_values)
+    np.testing.assert_allclose(recon, logit, atol=1e-4)
+
+
+def test_compute_shap_rejects_random_forest_with_clear_error() -> None:
+    X, y = _toy_xy()
+    pipe = make_model_pipeline(candidate_models(y)["random_forest"], engineered=False).fit(X, y)
+    with pytest.raises(TypeError, match="probability space"):
+        compute_shap(pipe, X.head(10))

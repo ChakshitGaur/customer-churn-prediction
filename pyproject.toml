@@ -19,6 +19,7 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = ["slow: end-to-end tests that take over a minute (deselect with -m \"not slow\")"]
 
 [tool.ruff.lint.pep8-naming]
 # Allow the scikit-learn convention of capital X for feature matrices.

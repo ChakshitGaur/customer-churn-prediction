@@ -5,13 +5,16 @@ Every other module imports from here so nothing hardcodes a path or a seed.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 # --- Reproducibility --------------------------------------------------------
 SEED: int = 42
 
 # --- Paths ------------------------------------------------------------------
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[1]
+# CHURN_ROOT redirects every data, model and report path (used by the pipeline smoke test and
+# useful for containers). Unset, the root is the repository.
+PROJECT_ROOT: Path = Path(os.environ.get("CHURN_ROOT") or Path(__file__).resolve().parents[1])
 
 DATA_DIR: Path = PROJECT_ROOT / "data"
 RAW_DIR: Path = DATA_DIR / "raw"  # read-only: never write here
@@ -38,6 +41,8 @@ TEST_SIZE: float = 0.15
 
 # --- Modeling ---------------------------------------------------------------
 CV_FOLDS: int = 5
+# Configurations sampled per model in hyperparameter tuning. CHURN_TUNE_ITER lowers it for tests.
+TUNE_ITER: int = int(os.environ.get("CHURN_TUNE_ITER", "40"))
 CV_REPEATS: int = 5  # repeats for repeated stratified K-fold (src/models/repeated_cv.py)
 ABLATION_REPEATS: int = 3  # repeats per scenario in src/models/ablation.py
 PRIMARY_METRIC: str = "average_precision"  # sklearn scorer name for PR-AUC
@@ -49,5 +54,10 @@ RETAINED_CUSTOMER_VALUE: float = 500.0  # value of keeping a would-be churner
 OFFER_SUCCESS_RATE: float = 0.30  # share of contacted would-be churners who then stay
 # Break-even probability for a perfectly calibrated model:
 #   cost / (value * success) = 50 / (500 * 0.30) = 0.33
+
+# Grid for the profit sensitivity analysis (src/models/sensitivity.py).
+SENSITIVITY_COSTS: tuple[float, ...] = (25.0, 50.0, 75.0, 100.0)
+SENSITIVITY_VALUES: tuple[float, ...] = (250.0, 500.0, 750.0, 1000.0)
+SENSITIVITY_SUCCESS_RATES: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5)
 
 LOG_FORMAT: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"

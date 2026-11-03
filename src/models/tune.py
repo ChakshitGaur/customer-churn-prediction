@@ -11,7 +11,7 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.pipeline import Pipeline
 
-from src.config import SEED
+from src.config import SEED, TUNE_ITER
 from src.features.pipeline import build_preprocessor, make_model_pipeline
 from src.models.evaluate import CV_SCORERS, best_profit_threshold
 from src.models.train import candidate_models, make_cv
@@ -19,7 +19,7 @@ from src.utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
-N_ITER: int = 40
+N_ITER: int = TUNE_ITER
 
 # Search spaces. ``prep`` lets the search choose raw vs. engineered features as well.
 SEARCH_SPACES: dict[str, dict[str, Any]] = {
