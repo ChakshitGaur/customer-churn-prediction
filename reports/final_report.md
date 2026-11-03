@@ -151,7 +151,7 @@ Out-of-fold calibrated scores on train + validation (test set untouched), today'
 
 - **Gender: no gap.** Contact rates, recall and calibration are within one point.
 - **Calibration holds in every group** (all within 0.03), so a predicted 40% means about 40% in each group.
-- **Recall differs by group, and two gaps are flagged (more than 10 points from the overall 67.5%).** Seniors are contacted twice as often (50.9% vs 26.6%) and 78.6% of their churners are reached, because they really do churn more (41% vs 24%). Customers with dependents are the other side: they churn least (15%) and only 53% of their churners are reached.
+- **Recall differs by group, and two gaps are flagged (more than 10 points from the overall 67.7%).** Seniors are contacted nearly twice as often (50.9% vs 26.6%) and 78.6% of their churners are reached, because they really do churn more (41% vs 24%). Customers with dependents are the other side: they churn least (15%) and only 53% of their churners are reached.
 - **Why:** one global threshold favors groups with a higher base rate. The model does not use age or family status as a driver (section 3), and offers here are a benefit, so the disadvantaged group is the one *under*-contacted. Whether to accept that, or use group-specific thresholds to equalize recall at some cost to profit, is a business and policy decision. Check it with legal or compliance before any group-specific rule, since using age or family status directly can be restricted.
 
 Full table: `reports/metrics/subgroup_report.csv`.
