@@ -30,7 +30,7 @@ On Linux/macOS (and in CI) use `.venv/bin/python` or plain `python` instead of `
 | Tests | `.venv\Scripts\python -m pytest` |
 | Lint | `.venv\Scripts\python -m ruff check app src tests` and `... -m black --check app src tests` |
 | Data | `.venv\Scripts\python -m src.data.download` (fresh clone only) |
-| Pipeline | `.venv\Scripts\python -m src.pipeline` (~6 min, includes tuning) |
+| Pipeline | `.venv\Scripts\python -m src.pipeline` (~2 min, includes tuning) |
 | App | `.venv\Scripts\python -m streamlit run app/app.py` (run from project root; `.streamlit/config.toml` binds it to localhost) |
 
 ## App rules

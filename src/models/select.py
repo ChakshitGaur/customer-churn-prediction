@@ -31,13 +31,15 @@ from src.utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
-TUNE_CANDIDATES: list[str] = ["logreg", "random_forest", "xgboost"]
-
 # Models that ``src.explain.shap_analysis.compute_shap`` (and so the risk list, recommendations
-# and dashboard) can explain in log-odds. Random forest is tuned for comparison but cannot be
-# the final model; a test keeps this tuple in step with ``compute_shap``.
-# Ordered simplest first: the order breaks near-ties.
+# and dashboard) can explain in log-odds. Only these can be the final model; a test keeps this
+# tuple in step with ``compute_shap``. Ordered simplest first: the order breaks near-ties.
 EXPLAINABLE_MODELS: tuple[str, ...] = ("logreg", "xgboost")
+
+# Only models that can be the final model are tuned. Random forest used to be tuned too
+# (about a third of the pipeline's runtime) but could never be selected; it is still
+# cross-validated untuned in the comparison table (reports/metrics/cv_results.csv).
+TUNE_CANDIDATES: list[str] = list(EXPLAINABLE_MODELS)
 
 
 def choose_final_model(tuning_report: dict[str, Any]) -> tuple[str, str]:

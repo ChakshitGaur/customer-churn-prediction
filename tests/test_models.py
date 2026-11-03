@@ -733,3 +733,10 @@ def test_bootstrap_thresholds_recovers_a_clear_optimum() -> None:
     # Smaller samples give a noisier threshold.
     small = bootstrap_thresholds(y, s, sample_size=150, n_boot=200)
     assert small["threshold"]["std"] > t["std"]
+
+
+def test_only_explainable_models_are_tuned() -> None:
+    from src.models.select import EXPLAINABLE_MODELS, TUNE_CANDIDATES
+
+    assert set(TUNE_CANDIDATES) == set(EXPLAINABLE_MODELS)
+    assert set(TUNE_CANDIDATES) <= set(SEARCH_SPACES)  # every tuned model has a search space
