@@ -698,3 +698,38 @@ def test_xgboost_fit_does_not_depend_on_the_seed() -> None:
         preds.append(make_model_pipeline(est, engineered=False).fit(X, y).predict_proba(X)[:, 1])
     np.testing.assert_array_equal(preds[0], preds[1])
     np.testing.assert_array_equal(preds[0], preds[2])
+
+
+# --- Threshold bootstrap ------------------------------------------------------
+
+
+def test_profit_curve_matches_per_threshold_calculation() -> None:
+    from src.models.sensitivity import THRESHOLDS, profit_per_1000
+    from src.models.threshold_bootstrap import profit_curve
+
+    rng = np.random.default_rng(1)
+    y = (rng.random(300) < 0.3).astype(int)
+    s = np.clip(0.3 + 0.4 * (y - 0.3) + rng.normal(0, 0.2, 300), 0.01, 0.99)
+    curve = profit_curve(y, s)
+    expected = [profit_per_1000(y, s, t, 50.0, 500.0, 0.3)[0] for t in THRESHOLDS]
+    np.testing.assert_allclose(curve, expected)
+
+
+def test_bootstrap_thresholds_recovers_a_clear_optimum() -> None:
+    from src.models.threshold_bootstrap import bootstrap_thresholds, flat_region
+
+    rng = np.random.default_rng(2)
+    n = 3000
+    y = (rng.random(n) < 0.3).astype(int)
+    s = np.clip(0.3 + 0.4 * (y - 0.3) + rng.normal(0, 0.15, n), 0.01, 0.99)
+    out = bootstrap_thresholds(y, s, sample_size=1000, n_boot=200)
+    t = out["threshold"]
+    assert t["p05"] <= t["median"] <= t["p95"]
+    assert abs(t["median"] - out["full_data_best_threshold"]) < 0.1
+    assert out["regret_per_1000"]["mean"] >= 0
+    assert 0 <= out["regret_per_1000"]["share_within_500"] <= 1
+    lo, hi = flat_region(out["curve"])
+    assert lo <= out["full_data_best_threshold"] <= hi
+    # Smaller samples give a noisier threshold.
+    small = bootstrap_thresholds(y, s, sample_size=150, n_boot=200)
+    assert small["threshold"]["std"] > t["std"]

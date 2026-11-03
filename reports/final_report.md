@@ -134,6 +134,24 @@ The profit case rests on three assumed numbers, so they were varied (`python -m 
 
 Full grid: `reports/metrics/profit_sensitivity.csv`.
 
+### How stable is the threshold?
+
+The threshold (0.377 calibrated) was chosen on 1,057 validation customers, so it is noisy. It was bootstrapped (`python -m src.models.threshold_bootstrap`): 1,000 validation-sized resamples of the out-of-fold calibrated scores, re-picking the profit-maximizing threshold each time (placeholder costs, test set untouched).
+
+| | Result |
+|---|---|
+| Best threshold on all development data | 0.33 (12,103 profit per 1,000 customers) |
+| Threshold across resamples | median 0.33, 90% interval **[0.23, 0.46]**, sd 0.065 |
+| Profit lost by a resampled threshold | mean **319** per 1,000 (2.6%), 95th percentile 860 (7%) |
+| Resamples within 500 / 1,000 of the best | 66% / 98% |
+| Thresholds within 95% of the best profit | **0.25 to 0.44** |
+
+- **The exact value is not important.** Profit is flat over a wide range, so a noisy threshold costs little. Today's 0.377 sits inside the range, and the theoretical break-even (0.33, section 5) is close to the best.
+- **Do not read the threshold, or the tier sizes that follow from it, as precise.** Anywhere between roughly 0.25 and 0.44 is nearly as good, so use that room to match the team's capacity: a lower threshold contacts more customers, a higher one fewer.
+- Regret is a lower bound, because the best threshold is estimated from data that includes the resampled rows. And the range moves with the costs (see the sensitivity table above).
+
+Full results: `reports/metrics/threshold_bootstrap.json`, `threshold_profit_curve.csv`.
+
 ### Does the model treat groups comparably?
 
 Out-of-fold calibrated scores on train + validation (test set untouched), today's threshold (`python -m src.models.fairness`):
