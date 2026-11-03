@@ -574,3 +574,27 @@ def test_profit_grid_is_monotone_in_success_rate_and_flags_break_even() -> None:
     assert grid["break_even_probability"].iloc[0] == pytest.approx(50 / (500 * 0.1))
     out = summarize_grid(grid)
     assert out["scenarios"] == 3 and 0 <= out["targeting_profitable_share"] <= 1
+
+
+# --- Subgroup report ----------------------------------------------------------
+
+
+def test_subgroup_report_metrics_and_flags() -> None:
+    from src.models.fairness import subgroup_report
+
+    # Group "a": scores track the labels. Group "b": the model misses every churner.
+    df = pd.DataFrame(
+        {
+            "grp": ["a"] * 10 + ["b"] * 10,
+            config.TARGET_COL: [1, 1, 0, 0, 0, 0, 0, 0, 0, 0] + [1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        }
+    )
+    scores = np.array([0.9, 0.8, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1] + [0.1] * 10)
+    out = subgroup_report(df, scores, threshold=0.5, group_cols=["grp"]).set_index("value")
+    assert out.loc["a", "recall"] == pytest.approx(1.0)
+    assert out.loc["b", "recall"] == pytest.approx(0.0)
+    assert out.loc["a", "contact_rate"] == pytest.approx(0.2)
+    assert out.loc["a", "precision"] == pytest.approx(1.0)
+    assert "recall" in out.loc["b", "flags"]
+    assert out.loc["b", "calibration_gap"] == pytest.approx(-0.1)
+    assert out.loc["a", "customers"] == 10

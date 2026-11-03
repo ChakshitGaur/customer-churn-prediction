@@ -129,10 +129,32 @@ The profit case rests on three assumed numbers, so they were varied (`python -m 
 
 - **The success rate matters most.** At the placeholder cost and value, targeting stops paying below roughly **12%**, and going from 20% to 30% more than triples the profit. The 30% figure is an assumption, so the controlled offer test in section 4 is the most valuable thing to run.
 - **Targeting is robust, blanket campaigns are not.** Targeting earned a profit in 79% of the 80 scenarios tried (all three inputs varied); contacting everyone did in 39%.
-- **The threshold must follow the costs.** At cost 25 the best rule contacts about 47% of customers, at cost 100 only about 8%. Keeping today's threshold while costs change loses money in several scenarios (for example −3,608 per 1,000 at cost 100 and 30% success, where re-tuning earns 1,654).
+- **The threshold must follow the costs.** At 30% success, the best rule contacts about 47% of customers at cost 25 but only about 8% at cost 100. Keeping today's threshold while costs change loses money in several scenarios (for example −3,608 per 1,000 at cost 100 and 30% success, where re-tuning earns 1,654).
 - The out-of-fold estimate at the placeholders (12,103 per 1,000) is close to the test-set figure above (12,441), which is a good sign.
 
 Full grid: `reports/metrics/profit_sensitivity.csv`.
+
+### Does the model treat groups comparably?
+
+Out-of-fold calibrated scores on train + validation (test set untouched), today's threshold (`python -m src.models.fairness`):
+
+| Group | Customers | Actual churn | Contacted | Churners reached (recall) | Predicted − actual churn |
+|---|---|---|---|---|---|
+| Female | 2,959 | 26.9% | 31.1% | 68.2% | −0.001 |
+| Male | 3,027 | 26.2% | 30.1% | 67.2% | +0.001 |
+| Not senior | 5,013 | 23.7% | 26.6% | 64.1% | +0.004 |
+| **Senior** | 973 | 41.2% | 50.9% | **78.6%** | −0.023 |
+| Partner: no | 3,085 | 32.9% | 40.2% | 72.6% | 0.000 |
+| Partner: yes | 2,901 | 19.8% | 20.3% | 59.1% | 0.000 |
+| Dependents: no | 4,209 | 31.3% | 37.0% | 70.7% | −0.005 |
+| **Dependents: yes** | 1,777 | 15.4% | 15.3% | **53.1%** | +0.010 |
+
+- **Gender: no gap.** Contact rates, recall and calibration are within one point.
+- **Calibration holds in every group** (all within 0.03), so a predicted 40% means about 40% in each group.
+- **Recall differs by group, and two gaps are flagged (more than 10 points from the overall 67.5%).** Seniors are contacted twice as often (50.9% vs 26.6%) and 78.6% of their churners are reached, because they really do churn more (41% vs 24%). Customers with dependents are the other side: they churn least (15%) and only 53% of their churners are reached.
+- **Why:** one global threshold favors groups with a higher base rate. The model does not use age or family status as a driver (section 3), and offers here are a benefit, so the disadvantaged group is the one *under*-contacted. Whether to accept that, or use group-specific thresholds to equalize recall at some cost to profit, is a business and policy decision. Check it with legal or compliance before any group-specific rule, since using age or family status directly can be restricted.
+
+Full table: `reports/metrics/subgroup_report.csv`.
 
 ---
 
