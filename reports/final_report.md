@@ -11,7 +11,7 @@
 - **The model finds churners far better than chance.** The 10% of customers it ranks riskiest churn at **77%**, 2.9 times the average. Contacting the top third reaches **73% of all churners**.
 - **Targeting pays; blanket campaigns don't.** With the placeholder costs below, contacting the customers the model flags earns **+13,150** on the test customers. Contacting the same number at random **loses 3,582**, and contacting everyone **loses 10,850**.
 - **Five factors drive churn:** month-to-month contracts, short tenure, fiber-optic internet, high monthly charges, and no security or tech-support add-ons. Each one points to a specific retention action.
-- **The model beats the logistic regression baseline,** but only modestly: PR-AUC **0.671 vs 0.641**, 95% CI of the gain [+0.003, +0.055]. Most of the value comes from targeting at all, not from the choice of algorithm.
+- **The model beats the logistic regression baseline,** but only modestly: PR-AUC **0.671 vs 0.641**, 95% CI of the gain [+0.003, +0.055]. Repeated cross-validation puts the gain nearer **+0.010** with an interval that includes zero (section 2). Most of the value comes from targeting at all, not from the choice of algorithm.
 
 ---
 
@@ -41,6 +41,16 @@
 | **High** | probability ≥ 0.377 (contact) | 349 (33%) | 58.3% | **58.5%** | 73% |
 | **Medium** | above-average risk (≥ 0.265) | 97 (9%) | 31.7% | **29.9%** | 10% |
 | **Low** | everything else | 611 (58%) | 9.1% | **7.7%** | 17% |
+
+**Robustness check: repeated cross-validation.** The test set holds only 1,057 customers, so one split is a noisy yardstick. The comparison was repeated with 5×5 stratified K-fold on train + validation (5,986 customers, test set untouched; `python -m src.models.repeated_cv`):
+
+| Model | PR-AUC (mean ± sd over 25 folds) | ROC-AUC |
+|---|---|---|
+| Logistic regression baseline | 0.656 ± 0.029 | 0.844 |
+| Logistic regression, tuned | 0.656 ± 0.029 | 0.844 |
+| **Final model (XGBoost)** | **0.666 ± 0.026** | **0.847** |
+
+The final model's PR-AUC gain over the baseline is **+0.010** (95% CI [−0.009, +0.029], Nadeau-Bengio corrected paired test, p = 0.29); it wins in 60% of folds. This is smaller than the +0.030 seen on the test split, and the interval includes zero. Read it as: the model is at least as good as logistic regression and probably slightly better, but the data does not prove the algorithm matters. Tuning logistic regression gives it no gain, so the small edge comes from the model family, not tuning. The tuned params were chosen on CV over the train split, so these numbers are slightly optimistic for both tuned models.
 
 ---
 

@@ -38,6 +38,7 @@ TEST_SIZE: float = 0.15
 
 # --- Modeling ---------------------------------------------------------------
 CV_FOLDS: int = 5
+CV_REPEATS: int = 5  # repeats for repeated stratified K-fold (src/models/repeated_cv.py)
 PRIMARY_METRIC: str = "average_precision"  # sklearn scorer name for PR-AUC
 TOP_DECILE: float = 0.10  # for "recall in top 10% risk" and lift
 

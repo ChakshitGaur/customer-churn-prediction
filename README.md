@@ -26,6 +26,7 @@ offers cost money, so they should go to customers who are both **likely to leave
 | Recall in top 10% | **29.3%** | 27.9% |
 
 - The PR-AUC gain is +0.030, with a paired bootstrap 95% CI of **[+0.003, +0.055]**.
+- **Robustness:** 5×5 repeated CV on train + validation gives a smaller gain of **+0.010** (95% CI [−0.009, +0.029]), so the edge over logistic regression is small and not statistically firm. Run `python -m src.models.repeated_cv`.
 - **Calibrated:** predicted churn in each risk tier matches actual churn (High 58.3% vs 58.5%, Medium 31.7% vs 29.9%, Low 9.1% vs 7.7%). Calibration error fell from 0.153 to 0.027.
 
 | Targeting strategy (1,057 test customers) | Profit |
