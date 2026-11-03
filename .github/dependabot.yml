@@ -1,0 +1,18 @@
+# Weekly update PRs for the pinned dependencies and the GitHub Actions used by CI.
+# CI (lint-and-test) runs on each PR, so a bad update shows up as a red check.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the patch and minor bumps instead of one per package.
+      python-minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
