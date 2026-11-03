@@ -2,7 +2,11 @@
 
 Decision rules (all decided before the test set is scored):
     * Candidates are cross-validated on train; the top models are tuned on train (CV).
-    * The final model is the tuned model with the best **validation** PR-AUC.
+    * The final model is chosen on **validation** PR-AUC among the models the explanation and
+      dashboard code supports (:data:`EXPLAINABLE_MODELS`). If a simpler supported model is
+      within one standard error of the best, the simpler one wins (see
+      :func:`choose_final_model`): tuned models here are statistically tied, so picking the
+      raw maximum would let tiny platform-level score differences change the shipped model.
     * Thresholds (final model and baseline) maximize expected profit on **validation**.
     * The test set is scored exactly once, at the end, for both models. Nothing is
       chosen based on test results.
@@ -10,12 +14,13 @@ Decision rules (all decided before the test set is scored):
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import joblib
 import pandas as pd
 
-from src.config import METRICS_DIR, MODELS_DIR
+from src.config import CV_FOLDS, METRICS_DIR, MODELS_DIR
 from src.data.split import Splits
 from src.features.pipeline import split_xy
 from src.models.baseline import make_baseline
@@ -27,6 +32,45 @@ from src.utils.logging_utils import get_logger
 logger = get_logger(__name__)
 
 TUNE_CANDIDATES: list[str] = ["logreg", "random_forest", "xgboost"]
+
+# Models that ``src.explain.shap_analysis.compute_shap`` (and so the risk list, recommendations
+# and dashboard) can explain in log-odds. Random forest is tuned for comparison but cannot be
+# the final model; a test keeps this tuple in step with ``compute_shap``.
+# Ordered simplest first: the order breaks near-ties.
+EXPLAINABLE_MODELS: tuple[str, ...] = ("logreg", "xgboost")
+
+
+def choose_final_model(tuning_report: dict[str, Any]) -> tuple[str, str]:
+    """Pick the final model: best validation PR-AUC, preferring simpler models within noise.
+
+    Only models in :data:`EXPLAINABLE_MODELS` are eligible. The noise band is one standard
+    error of the best model's cross-validated PR-AUC (``std / sqrt(CV_FOLDS)``); among eligible
+    models whose validation PR-AUC is inside it, the simplest (earliest in
+    :data:`EXPLAINABLE_MODELS`) is chosen.
+
+    Args:
+        tuning_report: Per-model tuning summaries, each with ``val.pr_auc`` and
+            ``cv_pr_auc_std``.
+
+    Returns:
+        ``(model_name, reason)``.
+
+    Raises:
+        ValueError: If no tuned model is eligible.
+    """
+    eligible = [n for n in EXPLAINABLE_MODELS if n in tuning_report]
+    if not eligible:
+        raise ValueError(f"No tuned model is among the explainable models {EXPLAINABLE_MODELS}")
+    val = {n: float(tuning_report[n]["val"]["pr_auc"]) for n in eligible}
+    best = max(val, key=lambda n: val[n])
+    tolerance = float(tuning_report[best]["cv_pr_auc_std"]) / math.sqrt(CV_FOLDS)
+    chosen = next(n for n in eligible if val[n] >= val[best] - tolerance)
+    if chosen == best:
+        return chosen, f"best validation PR-AUC ({val[best]:.4f}) among {eligible}"
+    return chosen, (
+        f"{chosen} (val PR-AUC {val[chosen]:.4f}) is within one standard error "
+        f"({tolerance:.4f}) of {best} ({val[best]:.4f}), so the simpler model is preferred"
+    )
 
 
 def run_modeling(splits: Splits) -> dict[str, Any]:
@@ -56,11 +100,14 @@ def run_modeling(splits: Splits) -> dict[str, Any]:
         tuned[name], tuning_report[name] = pipe, summary
     save_json(tuning_report, METRICS_DIR / "tuning_results.json")
 
-    # 3. Select final model on validation PR-AUC
-    best_name = max(tuning_report, key=lambda n: tuning_report[n]["val"]["pr_auc"])
+    # 3. Select final model on validation PR-AUC (explainable models only, ties -> simpler)
+    best_name, selection_reason = choose_final_model(tuning_report)
     final_model = tuned[best_name]
     logger.info(
-        "Selected %s (val PR-AUC %.4f)", best_name, tuning_report[best_name]["val"]["pr_auc"]
+        "Selected %s (val PR-AUC %.4f): %s",
+        best_name,
+        tuning_report[best_name]["val"]["pr_auc"],
+        selection_reason,
     )
 
     # 4. Baseline (untuned LR, raw features) fit on train
@@ -82,6 +129,7 @@ def run_modeling(splits: Splits) -> dict[str, Any]:
 
     summary = {
         "final_model": best_name,
+        "selection_reason": selection_reason,
         "final_params": tuning_report[best_name]["best_params"],
         "threshold": final_thr["threshold"],
         "baseline_threshold": base_thr["threshold"],
