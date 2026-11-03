@@ -172,6 +172,7 @@ Full table: `reports/metrics/subgroup_report.csv`.
   `TotalCharges` is almost exactly `tenure × MonthlyCharges` (ratio 1.00 ± 0.05), so removing it costs nothing. Removing `tenure` as well costs about 0.06 PR-AUC, and the final model then falls to the baseline's level. This is an upper bound on the exposure, not a measured leak: tenure is also a legitimate risk signal for active customers. Treat the reported figures as an upper estimate until the model is re-evaluated on features taken before the prediction window.
 - **No behavioral signals.** The data has no usage trends, support tickets or payment failures. That is why the model separates risky groups from safe ones well, but is weaker *within* the riskiest groups (ROC-AUC about 0.77 inside month-to-month and new-customer segments, vs 0.86 overall).
 - **Correlation, not causation.** Two-year customers churn less, but converting someone to a two-year contract won't necessarily give them the same risk. The control-group test in section 4 is how to find out.
+- **Run-to-run variation.** A full rerun on a different machine (Linux, Python 3.13) gave XGBoost validation PR-AUC 0.6368 instead of 0.6410 with identical hyperparameters. That moved the profit threshold from 0.58 to 0.63 (calibrated 0.377 to 0.444), shrank the High tier from 349 to 301 customers, and cut model-targeting profit on the test set from 13,150 to 11,500. Test PR-AUC barely moved (0.670 vs 0.671). Read the profit and tier figures as having about ±10% of noise, not as exact values; rerun the pipeline on your own machine before quoting them.
 - **Calibration data size.** Calibration was fit on 1,057 validation customers. It should be checked again as new outcomes arrive.
 
 **Interpretable alternative: Explainable Boosting Machine.** An EBM is an additive model with one learned shape per feature, so every prediction splits exactly into per-feature contributions, with no SHAP approximation. It was compared with the same 5×5 repeated CV on train + validation (test set untouched; no interaction terms, raw features; `python -m src.models.ebm`):
@@ -193,7 +194,7 @@ The EBM matches the final model: PR-AUC difference **+0.002** (95% CI [−0.007,
 | Split | Stratified 70 / 15 / 15 | No date column for a time-based split |
 | Features | 41 inputs; engineered features tested, raw chosen | Engineered features gave no accuracy gain in any model |
 | Models | Logistic regression, Random Forest, XGBoost, LightGBM with class weights | Cross-validated on train; top 3 tuned with 40-configuration searches |
-| Selection | Best **validation** PR-AUC → XGBoost | Test set never used for a decision |
+| Selection | Best **validation** PR-AUC among models the explanations support (logistic regression, XGBoost); a simpler model wins if it is within one standard error → XGBoost | Test set never used for a decision. The tuned models are statistically tied, so the rule avoids letting tiny score differences pick the shipped model |
 | Threshold | Maximize expected profit on **validation** | Ties the model to the business goal |
 | Calibration | Sigmoid on validation, threshold mapped exactly | Honest probabilities; same customers contacted |
 | Test | Scored once at the end | Unbiased estimate of real performance |

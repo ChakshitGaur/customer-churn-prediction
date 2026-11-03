@@ -621,3 +621,57 @@ def test_compute_shap_rejects_random_forest_with_clear_error() -> None:
     pipe = make_model_pipeline(candidate_models(y)["random_forest"], engineered=False).fit(X, y)
     with pytest.raises(TypeError, match="probability space"):
         compute_shap(pipe, X.head(10))
+
+
+# --- Final model selection ----------------------------------------------------
+
+
+def _report(**vals: tuple[float, float]) -> dict[str, dict]:
+    return {n: {"val": {"pr_auc": v}, "cv_pr_auc_std": s} for n, (v, s) in vals.items()}
+
+
+def test_choose_final_model_never_picks_unsupported_model() -> None:
+    from src.models.select import EXPLAINABLE_MODELS, choose_final_model
+
+    report = _report(logreg=(0.62, 0.02), random_forest=(0.70, 0.02), xgboost=(0.64, 0.02))
+    name, _ = choose_final_model(report)
+    assert name in EXPLAINABLE_MODELS and name == "xgboost"
+
+
+def test_choose_final_model_prefers_simpler_within_one_standard_error() -> None:
+    from src.models.select import choose_final_model
+
+    # SE = 0.05 / sqrt(5) = 0.0224; logreg trails xgboost by 0.01, so it is within noise.
+    name, reason = choose_final_model(_report(logreg=(0.630, 0.05), xgboost=(0.640, 0.05)))
+    assert name == "logreg" and "simpler" in reason
+    # Trailing by more than one SE keeps the best model.
+    name, _ = choose_final_model(_report(logreg=(0.600, 0.05), xgboost=(0.640, 0.05)))
+    assert name == "xgboost"
+
+
+def test_choose_final_model_is_stable_to_tiny_score_changes() -> None:
+    from src.models.select import choose_final_model
+
+    committed = _report(logreg=(0.6244, 0.0225), random_forest=(0.6376, 0.0243),
+                        xgboost=(0.6410, 0.0239))  # fmt: skip
+    other_machine = _report(logreg=(0.6244, 0.0225), random_forest=(0.6376, 0.0243),
+                            xgboost=(0.6368, 0.0239))  # fmt: skip
+    assert choose_final_model(committed)[0] == choose_final_model(other_machine)[0] == "xgboost"
+
+
+def test_choose_final_model_requires_an_eligible_model() -> None:
+    from src.models.select import choose_final_model
+
+    with pytest.raises(ValueError, match="explainable"):
+        choose_final_model(_report(random_forest=(0.7, 0.02)))
+
+
+def test_every_explainable_model_works_with_compute_shap() -> None:
+    from src.models.select import EXPLAINABLE_MODELS
+
+    X, y = _toy_xy()
+    models = candidate_models(y)
+    for name in EXPLAINABLE_MODELS:
+        pipe = make_model_pipeline(models[name], engineered=False).fit(X, y)
+        sv = compute_shap(pipe, X.head(10))
+        assert sv.values.shape[0] == 10 and sv.values.ndim == 2, name

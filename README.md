@@ -158,7 +158,7 @@ churn-project/
 Python 3.14 · pandas · scikit-learn · XGBoost · LightGBM · SHAP · Streamlit · matplotlib/seaborn · pytest · ruff · black
 
 ## Resume bullets
-- Built an end-to-end churn prediction pipeline (Python, scikit-learn, XGBoost) on 7,043 telecom customers. It reaches PR-AUC 0.671 and 2.9× lift in the top risk decile, beating a logistic regression baseline with a bootstrap-validated margin.
+- Built an end-to-end churn prediction pipeline (Python, scikit-learn, XGBoost) on 7,043 telecom customers. It reaches PR-AUC 0.671 and 2.9× lift in the top risk decile on a held-out test set, ahead of a logistic regression baseline (+0.03 PR-AUC). Repeated cross-validation puts that gain nearer +0.01, within noise, so the main value comes from targeting, not the algorithm.
 - Designed a cost-based targeting strategy with calibrated probabilities (calibration error 0.153 → 0.027). It reaches 73% of churners by contacting 33% of customers, earning about 12.4K per 1,000 customers vs a loss under random targeting.
 - Explained predictions with SHAP, turning each customer's top 3 churn drivers into tiered retention actions. Identified contract type, early tenure and fiber service as the main levers.
 - Shipped a Streamlit dashboard for single and batch scoring with SHAP explanations and PSI drift checks, plus a production monitoring plan with alert thresholds and retraining triggers.
