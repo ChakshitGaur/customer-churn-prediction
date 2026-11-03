@@ -235,7 +235,8 @@ def provenance_caption(card: dict[str, Any] | None) -> str:
     """One line for the sidebar saying when and on what the model was trained."""
     if card is None:
         return "Provenance unknown (no model card)."
-    trained = (card.get("model_trained_at") or "unknown date")[:10]
+    trained_at = card.get("model_trained_at")
+    trained = trained_at[:10] if trained_at else "unknown date"
     commit = (card.get("code") or {}).get("commit")
     sha = (card.get("data") or {}).get("sha256")
     parts = [f"Trained {trained}"]
