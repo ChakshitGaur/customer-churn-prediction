@@ -50,4 +50,9 @@ OFFER_SUCCESS_RATE: float = 0.30  # share of contacted would-be churners who the
 # Break-even probability for a perfectly calibrated model:
 #   cost / (value * success) = 50 / (500 * 0.30) = 0.33
 
+# Grid for the profit sensitivity analysis (src/models/sensitivity.py).
+SENSITIVITY_COSTS: tuple[float, ...] = (25.0, 50.0, 75.0, 100.0)
+SENSITIVITY_VALUES: tuple[float, ...] = (250.0, 500.0, 750.0, 1000.0)
+SENSITIVITY_SUCCESS_RATES: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5)
+
 LOG_FORMAT: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"

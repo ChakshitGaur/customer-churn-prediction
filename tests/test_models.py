@@ -545,3 +545,32 @@ def test_compare_scores_pairs_ebm_against_each_other_model() -> None:
     assert set(out["per_model"]) == {"baseline", "ebm"}
     assert set(out["paired"]) == {"ebm_minus_baseline"}
     assert set(out["paired"]["ebm_minus_baseline"]) >= {"pr_auc", "roc_auc"}
+
+
+# --- Profit sensitivity -------------------------------------------------------
+
+
+def test_profit_per_1000_matches_hand_calculation() -> None:
+    from src.models.sensitivity import profit_per_1000
+
+    y = np.array([1, 1, 0, 0, 1, 0, 0, 0, 0, 0])
+    s = np.array([0.9, 0.8, 0.7, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+    profit, contact = profit_per_1000(y, s, 0.5, cost=10.0, value=100.0, rate=0.5)
+    # contacts: 3 customers, 2 true churners -> 2 * 100 * 0.5 - 3 * 10 = 70 over 10 customers
+    assert profit == pytest.approx(1000 * 70 / 10)
+    assert contact == pytest.approx(0.3)
+
+
+def test_profit_grid_is_monotone_in_success_rate_and_flags_break_even() -> None:
+    from src.models.sensitivity import profit_grid, summarize_grid
+
+    rng = np.random.default_rng(0)
+    y = (rng.random(400) < 0.3).astype(int)
+    s = np.clip(0.3 + 0.4 * (y - 0.3) + rng.normal(0, 0.15, 400), 0.01, 0.99)
+    grid = profit_grid(y, s, 0.35, costs=(50.0,), values=(500.0,), rates=(0.1, 0.3, 0.5))
+    assert len(grid) == 3
+    assert grid["best_profit_per_1000"].is_monotonic_increasing
+    assert (grid["best_profit_per_1000"] >= grid["kept_threshold_profit_per_1000"] - 1e-9).all()
+    assert grid["break_even_probability"].iloc[0] == pytest.approx(50 / (500 * 0.1))
+    out = summarize_grid(grid)
+    assert out["scenarios"] == 3 and 0 <= out["targeting_profitable_share"] <= 1

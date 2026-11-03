@@ -115,6 +115,25 @@ Assumptions, all placeholders in `src/config.py`: each contact costs **50**; a s
 
 The ranking is what creates value. Spending the same budget at random loses money, while spending it on the model's High tier earns about **12,400 per 1,000 customers per month** under these assumptions. With real costs, rerun the pipeline: the threshold and the numbers above update automatically.
 
+### How much do the placeholder costs matter?
+
+The profit case rests on three assumed numbers, so they were varied (`python -m src.models.sensitivity`, out-of-fold calibrated scores on train + validation, test set untouched; the threshold is re-optimized for each scenario). Best profit per 1,000 customers per month, with customer value fixed at 500:
+
+| Offer success rate | Cost 25 | Cost 50 (placeholder) | Cost 75 | Cost 100 |
+|---|---|---|---|---|
+| 10% | 1,746 | 0 | 0 | 0 |
+| 20% | 11,180 | 3,491 | 564 | 0 |
+| **30% (placeholder)** | 22,594 | **12,103** | 5,237 | 1,654 |
+| 40% | 34,602 | 22,361 | 13,281 | 6,983 |
+| 50% | 47,214 | 33,754 | 23,029 | 14,860 |
+
+- **The success rate matters most.** At the placeholder cost and value, targeting stops paying below roughly **12%**, and going from 20% to 30% more than triples the profit. The 30% figure is an assumption, so the controlled offer test in section 4 is the most valuable thing to run.
+- **Targeting is robust, blanket campaigns are not.** Targeting earned a profit in 79% of the 80 scenarios tried (all three inputs varied); contacting everyone did in 39%.
+- **The threshold must follow the costs.** At cost 25 the best rule contacts about 47% of customers, at cost 100 only about 8%. Keeping today's threshold while costs change loses money in several scenarios (for example −3,608 per 1,000 at cost 100 and 30% success, where re-tuning earns 1,654).
+- The out-of-fold estimate at the placeholders (12,103 per 1,000) is close to the test-set figure above (12,441), which is a good sign.
+
+Full grid: `reports/metrics/profit_sensitivity.csv`.
+
 ---
 
 ## 6. Limitations
