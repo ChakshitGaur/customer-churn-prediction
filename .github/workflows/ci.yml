@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # requirements.txt is pinned on Python 3.14.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Ruff
+        run: python -m ruff check app src tests
+
+      - name: Black
+        run: python -m black --check app src tests
+
+      # Raw data is not in the repo, so the one test that needs it skips itself.
+      - name: Tests
+        run: python -m pytest
