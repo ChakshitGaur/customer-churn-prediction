@@ -20,6 +20,8 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import shap  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
+from sklearn.ensemble import RandomForestClassifier  # noqa: E402
+from sklearn.linear_model import LogisticRegression  # noqa: E402
 from sklearn.pipeline import Pipeline  # noqa: E402
 
 from src.features.build_features import add_features  # noqa: E402
@@ -46,15 +48,26 @@ def compute_shap(pipeline: Pipeline, X: pd.DataFrame) -> shap.Explanation:
     """SHAP values for every row of ``X`` on the pipeline's transformed features.
 
     Args:
-        pipeline: Fitted ``Pipeline([("prep", ...), ("model", tree_model)])``.
+        pipeline: Fitted ``Pipeline([("prep", ...), ("model", model)])`` where the model is a
+            boosted tree model (XGBoost, LightGBM) or a logistic regression. Values are in
+            log-odds either way. For a logistic regression the baseline is the mean of ``X``
+            (the rows being explained).
         X: Raw feature rows (as passed to ``pipeline.predict_proba``).
 
     Returns:
         A :class:`shap.Explanation` with one column per transformed feature.
+
+    Raises:
+        TypeError: If the model is a random forest, whose SHAP values are in probability space
+            and would break the log-odds contract that downstream code relies on.
     """
     Xt = pipeline.named_steps["prep"].transform(X)
-    explainer = shap.TreeExplainer(pipeline.named_steps["model"])
-    return explainer(Xt)
+    model = pipeline.named_steps["model"]
+    if isinstance(model, LogisticRegression):
+        return shap.LinearExplainer(model, Xt)(Xt)
+    if isinstance(model, RandomForestClassifier):
+        raise TypeError("SHAP for random forests is in probability space; use XGBoost or LogReg")
+    return shap.TreeExplainer(model)(Xt)
 
 
 def group_shap(sv: shap.Explanation) -> pd.DataFrame:

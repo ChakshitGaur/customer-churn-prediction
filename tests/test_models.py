@@ -598,3 +598,26 @@ def test_subgroup_report_metrics_and_flags() -> None:
     assert "recall" in out.loc["b", "flags"]
     assert out.loc["b", "calibration_gap"] == pytest.approx(-0.1)
     assert out.loc["a", "customers"] == 10
+
+
+# --- SHAP for linear models ---------------------------------------------------
+
+
+def test_compute_shap_supports_logistic_regression_in_log_odds() -> None:
+    X, y = _toy_xy()
+    pipe = make_baseline().fit(X, y)
+    sv = compute_shap(pipe, X.head(50))
+    grouped = group_shap(sv)
+    assert len(grouped) == 50 and "Contract" in grouped.columns
+    # Contributions plus the base value reconstruct the model's log-odds.
+    proba = pipe.predict_proba(X.head(50))[:, 1]
+    logit = np.log(proba / (1 - proba))
+    recon = sv.values.sum(axis=1) + np.ravel(sv.base_values)
+    np.testing.assert_allclose(recon, logit, atol=1e-4)
+
+
+def test_compute_shap_rejects_random_forest_with_clear_error() -> None:
+    X, y = _toy_xy()
+    pipe = make_model_pipeline(candidate_models(y)["random_forest"], engineered=False).fit(X, y)
+    with pytest.raises(TypeError, match="probability space"):
+        compute_shap(pipe, X.head(10))
