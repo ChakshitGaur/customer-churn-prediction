@@ -9,6 +9,8 @@ from __future__ import annotations
 import io
 import json
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -16,10 +18,20 @@ import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
 
-from src.config import FIGURES_DIR, ID_COL, METRICS_DIR, PROCESSED_DIR, TARGET_COL
+from src.config import (
+    FIGURES_DIR,
+    ID_COL,
+    METRICS_DIR,
+    MODEL_MAX_AGE_DAYS,
+    MODELS_DIR,
+    PROCESSED_DIR,
+    RAW_DATA_FILE,
+    TARGET_COL,
+)
 from src.data.clean import clean
 from src.data.load import EXPECTED_COLUMNS
 from src.explain.shap_analysis import compute_shap, group_shap, plot_customer_waterfall
+from src.models.model_card import file_sha256, library_versions
 from src.models.predict import CALIBRATED_MODEL_FILE, CalibratedModel, build_risk_list
 
 FEATURE_COLUMNS: list[str] = [c for c in EXPECTED_COLUMNS if c not in (ID_COL, TARGET_COL)]
@@ -78,6 +90,161 @@ DEFAULT_CUSTOMER: dict[str, Any] = {
 def model_available(path: Path = CALIBRATED_MODEL_FILE) -> bool:
     """Whether the pipeline has produced the calibrated model."""
     return path.exists()
+
+
+MODEL_CARD_FILE: Path = MODELS_DIR / "model_card.json"
+FINAL_MODEL_FILE: Path = MODELS_DIR / "final_model.joblib"
+MTIME_TOLERANCE_SECONDS: float = 5.0
+
+
+@dataclass(frozen=True)
+class Notice:
+    """A message about the loaded model for the dashboard to show.
+
+    ``level`` is ``"warning"`` when the model may not match its data or environment, and
+    ``"info"`` for context that does not need action.
+    """
+
+    level: str
+    message: str
+
+
+def load_model_card(path: Path = MODEL_CARD_FILE) -> dict[str, Any] | None:
+    """The model card written by the pipeline, or ``None`` if absent or unreadable."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+@lru_cache(maxsize=4)
+def _sha256_cached(path: str, mtime_ns: int, size: int) -> str:
+    """Hash a file, remembering the result until the file changes."""
+    return file_sha256(Path(path))
+
+
+def _current_data_hash(raw_file: Path) -> str | None:
+    try:
+        stat = raw_file.stat()
+    except OSError:
+        return None
+    return _sha256_cached(str(raw_file), stat.st_mtime_ns, stat.st_size)
+
+
+def model_notices(
+    card_path: Path = MODEL_CARD_FILE,
+    raw_file: Path = RAW_DATA_FILE,
+    model_file: Path = FINAL_MODEL_FILE,
+    now: datetime | None = None,
+    max_age_days: int = MODEL_MAX_AGE_DAYS,
+) -> list[Notice]:
+    """Check that the model on disk still matches the data and environment it was trained in.
+
+    Compares the model card written by the pipeline with the current state: the raw data hash,
+    the model file's modification time, the installed library versions, and the model's age.
+    A missing raw data file is not an error (a deployed app may not ship the data), so that
+    check is skipped.
+
+    Args:
+        card_path: Model card JSON.
+        raw_file: Current raw data file.
+        model_file: Trained model artifact the card describes.
+        now: Current time (for tests); defaults to the real time.
+        max_age_days: Age after which an info note is shown.
+
+    Returns:
+        Warnings first, then info notes; empty when everything matches.
+    """
+    card = load_model_card(card_path)
+    if card is None:
+        return [
+            Notice(
+                "info",
+                "No model card found, so this model cannot be checked against its data. "
+                "Run `python -m src.pipeline` (or `python -m src.models.model_card`) to create it.",
+            )
+        ]
+    if not (
+        isinstance(card.get("data"), dict)
+        and "sha256" in card["data"]
+        and isinstance(card.get("code"), dict)
+        and isinstance(card["code"].get("libraries"), dict)
+    ):
+        return [
+            Notice(
+                "info",
+                "The model card is incomplete or from an older version, so the model cannot be "
+                "checked. Run `python -m src.models.model_card` to rewrite it.",
+            )
+        ]
+    notices: list[Notice] = []
+
+    data_hash = _current_data_hash(raw_file)
+    if data_hash is not None and data_hash != card["data"]["sha256"]:
+        notices.append(
+            Notice(
+                "warning",
+                "The raw data has changed since this model was trained. "
+                "Rerun `python -m src.pipeline` to retrain on the current data.",
+            )
+        )
+
+    trained_at = card.get("model_trained_at")
+    if trained_at and model_file.exists():
+        recorded = datetime.fromisoformat(trained_at)
+        actual = datetime.fromtimestamp(model_file.stat().st_mtime, UTC)
+        if abs((actual - recorded).total_seconds()) > MTIME_TOLERANCE_SECONDS:
+            notices.append(
+                Notice(
+                    "warning",
+                    "The model file was replaced after its model card was written, so the card "
+                    "may not describe it. Rerun `python -m src.models.model_card`.",
+                )
+            )
+
+    installed = library_versions(tuple(card["code"]["libraries"]))
+    changed = [
+        f"{name} {was} → {installed[name]}"
+        for name, was in card["code"]["libraries"].items()
+        if was is not None and installed[name] != was
+    ]
+    if changed:
+        notices.append(
+            Notice(
+                "warning",
+                "Library versions differ from training, which can change a saved model's "
+                f"behaviour: {', '.join(changed)}.",
+            )
+        )
+
+    if trained_at:
+        now = now if now is not None else datetime.now(UTC)
+        age_days = (now - datetime.fromisoformat(trained_at)).days
+        if age_days > max_age_days:
+            notices.append(
+                Notice(
+                    "info",
+                    f"This model was trained {age_days} days ago. Check the monitoring plan's "
+                    "retraining triggers.",
+                )
+            )
+    return sorted(notices, key=lambda n: n.level != "warning")
+
+
+def provenance_caption(card: dict[str, Any] | None) -> str:
+    """One line for the sidebar saying when and on what the model was trained."""
+    if card is None:
+        return "Provenance unknown (no model card)."
+    trained_at = card.get("model_trained_at")
+    trained = trained_at[:10] if trained_at else "unknown date"
+    commit = (card.get("code") or {}).get("commit")
+    sha = (card.get("data") or {}).get("sha256")
+    parts = [f"Trained {trained}"]
+    if sha:
+        parts.append(f"data {sha[:8]}")
+    if commit:
+        parts.append(f"commit {commit[:7]}")
+    return " · ".join(parts)
 
 
 def make_customer(inputs: dict[str, Any], customer_id: str = "NEW-CUSTOMER") -> pd.DataFrame:

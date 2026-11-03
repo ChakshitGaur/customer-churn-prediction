@@ -66,6 +66,8 @@ A Streamlit app with three tabs:
 - **Batch scoring:** upload a CSV (or use the built-in sample) to get a ranked list with tier filters and a CSV download, plus a data-drift check (PSI) against the training data.
 - **Model insights:** headline metrics, risk tiers, targeting strategies and the key charts.
 
+The dashboard also checks the model against its model card and warns when the raw data has changed since training, the model file was replaced after the card was written, or library versions differ. It shows when the model was trained in the sidebar, and notes models older than 90 days (`MODEL_MAX_AGE_DAYS` in `src/config.py`).
+
 <p>
   <img src="reports/figures/dashboard_single_customer.jpg" width="800" alt="Dashboard: scoring a single customer">
 </p>

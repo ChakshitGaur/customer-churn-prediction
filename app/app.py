@@ -71,8 +71,11 @@ with st.sidebar:
         "Business costs are placeholders in `src/config.py`. "
         "Reasons come from SHAP; actions from `src/models/recommend.py`."
     )
+    st.caption(helpers.provenance_caption(helpers.load_model_card()))
 
 st.title("📉 Churn Risk Dashboard")
+for notice in helpers.model_notices():
+    (st.warning if notice.level == "warning" else st.info)(notice.message)
 tab_single, tab_batch, tab_insights = st.tabs(
     ["Single customer", "Batch scoring", "Model insights"]
 )
