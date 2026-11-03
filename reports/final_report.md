@@ -120,7 +120,15 @@ The ranking is what creates value. Spending the same budget at random loses mone
 ## 6. Limitations
 
 - **Placeholder economics.** Offer cost, customer value and success rate are assumptions. The threshold, tier sizes and profit figures depend on them.
-- **Snapshot data.** For churned customers, tenure and total charges are measured at the moment they left. A production system should take features at a fixed date *before* the prediction window.
+- **Snapshot data.** For churned customers, tenure and total charges are measured at the moment they left, while active customers are measured today. So a short tenure partly means "already gone", and the model can use that in training in a way it cannot when scoring live customers. A production system should take features at a fixed date *before* the prediction window. The size of the effect cannot be measured without dated data, but a sensitivity check bounds how much the model leans on these columns (repeated 5-fold CV on train + validation, 3 repeats, columns zeroed out so they carry no information; PR-AUC):
+
+  | Columns removed | Baseline | Final model |
+  |---|---|---|
+  | None | 0.657 | 0.666 |
+  | TotalCharges | 0.655 | 0.665 |
+  | tenure and TotalCharges | 0.606 | 0.603 |
+
+  `TotalCharges` is almost exactly `tenure × MonthlyCharges` (ratio 1.00 ± 0.05), so removing it costs nothing. Removing `tenure` as well costs about 0.06 PR-AUC, and the final model then falls to the baseline's level. This is an upper bound on the exposure, not a measured leak: tenure is also a legitimate risk signal for active customers. Treat the reported figures as an upper estimate until the model is re-evaluated on features taken before the prediction window.
 - **No behavioral signals.** The data has no usage trends, support tickets or payment failures. That is why the model separates risky groups from safe ones well, but is weaker *within* the riskiest groups (ROC-AUC about 0.77 inside month-to-month and new-customer segments, vs 0.86 overall).
 - **Correlation, not causation.** Two-year customers churn less, but converting someone to a two-year contract won't necessarily give them the same risk. The control-group test in section 4 is how to find out.
 - **Calibration data size.** Calibration was fit on 1,057 validation customers. It should be checked again as new outcomes arrive.
