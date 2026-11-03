@@ -147,4 +147,4 @@ The ranking is what creates value. Spending the same budget at random loses mone
 | Calibration | Sigmoid on validation, threshold mapped exactly | Honest probabilities; same customers contacted |
 | Test | Scored once at the end | Unbiased estimate of real performance |
 
-Reproduce everything with one command: `.venv\Scripts\python -m src.pipeline` (about 6 minutes).
+Reproduce everything with one command: `python -m src.pipeline` (about 6 minutes).

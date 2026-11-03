@@ -23,6 +23,8 @@ Predict which customers will churn, explain why, and turn predictions into reten
 - Lint/format: `ruff` + `black` (line length 100). Tests: `pytest`.
 
 ## Commands (Windows; `make` not installed — run the commands directly)
+On Linux/macOS (and in CI) use `.venv/bin/python` or plain `python` instead of `.venv\Scripts\python`.
+
 | Task | Command |
 |---|---|
 | Tests | `.venv\Scripts\python -m pytest` |
