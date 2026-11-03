@@ -120,7 +120,8 @@ python -m streamlit run app/app.py
 
 Without activating, call the venv's interpreter directly: `.venv/bin/python` (Linux / macOS) or `.venv\Scripts\python` (Windows).
 
-- The pipeline runs all 6 stages in about 6 minutes: clean → split → features → modeling → evaluation and SHAP → calibration and risk list.
+- The pipeline runs all 7 stages in about 6 minutes: clean → split → features → modeling → evaluation and SHAP → calibration and risk list → model card.
+- **Model card:** the last stage writes `models/model_card.json` (next to the model) and `reports/model_card.md`: data hash, split sizes, hyperparameters, threshold, metrics, library versions, git commit and known limitations. Rerun it alone with `python -m src.models.model_card`. Both files are gitignored because they record the local environment.
 - **Outputs:** metrics in `reports/metrics/`, figures in `reports/figures/`, and the customer list in `reports/output/customer_risk_list.csv` (gitignored).
 - **Business assumptions** (offer cost, customer value, success rate) are placeholders in [`src/config.py`](src/config.py). Change them and rerun.
 - The dashboard opens at http://localhost:8501. It needs the pipeline outputs in `models/`, and `.streamlit/config.toml` keeps it local-only.
@@ -133,12 +134,12 @@ churn-project/
 ├── notebooks/                     # 01_eda, 02_features, 03_model_analysis
 ├── src/
 │   ├── config.py                  # paths, SEED=42, split sizes, business costs
-│   ├── pipeline.py                # one-command entry point (6 stages)
+│   ├── pipeline.py                # one-command entry point (7 stages)
 │   ├── data/                      # download, load, clean, split (+ leakage checks)
 │   ├── features/                  # build_features, preprocessing pipeline
 │   ├── models/                    # baseline, train, tune, select, evaluate, analysis,
 │   │                              # predict (calibration + risk list), recommend, business,
-│   │                              # monitor (PSI drift)
+│   │                              # monitor (PSI drift), model_card
 │   ├── explain/                   # SHAP: global, per-customer, plain-language reasons
 │   └── utils/                     # logging, seeding
 ├── app/                           # Streamlit dashboard (app.py) + tested helpers

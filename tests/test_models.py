@@ -421,3 +421,89 @@ def test_feature_ablation_removing_signal_hurts() -> None:
     assert len(table) == 2
     pr = table.set_index("removed")["pr_auc"]
     assert pr["tenure"] < pr["none"]
+
+
+# --- Model card ---------------------------------------------------------------
+
+
+def _fake_metrics(tmp_path, with_repeated: bool = True):  # type: ignore[no-untyped-def]
+    import json
+
+    metrics = tmp_path / "metrics"
+    metrics.mkdir()
+    m = {"pr_auc": 0.67, "roc_auc": 0.85, "recall_top10": 0.29, "lift_top10": 2.9}
+    files = {
+        "model_summary.json": {
+            "final_model": "xgboost",
+            "final_params": {"model__max_depth": 5, "prep": "raw"},
+            "threshold": 0.58,
+            "val": {"final": m, "baseline": m},
+            "test": {"final": m, "baseline": {**m, "pr_auc": 0.64}},
+            "test_pr_auc_diff_bootstrap": {"diff": 0.03},
+        },
+        "split_summary.json": {"train": {"rows": 70, "share": 0.7, "churn_rate": 0.25}},
+        "business_summary.json": {
+            "calibration": {"method": "sigmoid"},
+            "threshold_calibrated": 0.377,
+        },
+        "tuning_results.json": {"xgboost": {"cv_pr_auc_mean": 0.67}},
+    }
+    if with_repeated:
+        gain = {"mean_diff": 0.01, "ci_low": -0.01, "ci_high": 0.03, "p_value": 0.3}
+        files["repeated_cv_summary.json"] = {
+            "per_model": {
+                "baseline": {"pr_auc": {"mean": 0.656}},
+                "final": {"pr_auc": {"mean": 0.666}},
+            },
+            "paired": {"final_minus_baseline": {"pr_auc": gain}},
+        }
+    for name, content in files.items():
+        (metrics / name).write_text(json.dumps(content))
+    raw = tmp_path / "raw.csv"
+    raw.write_text("a,b\n1,2\n")
+    return metrics, raw
+
+
+def test_build_model_card_records_provenance(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import hashlib
+
+    from src.models.model_card import build_model_card, render_markdown
+
+    metrics, raw = _fake_metrics(tmp_path)
+    card = build_model_card(metrics, raw, model_file=tmp_path / "missing.joblib")
+    assert card["data"]["sha256"] == hashlib.sha256(raw.read_bytes()).hexdigest()
+    assert card["data"]["matches_expected_source"] is False  # not the real dataset
+    assert card["model"]["name"] == "xgboost"
+    assert card["model_trained_at"] is None
+    assert card["performance"]["repeated_cv"]["final_minus_baseline_pr_auc"]["mean_diff"] == 0.01
+    assert card["limitations"]
+    text = render_markdown(card)
+    assert "# Model card" in text and "DOES NOT match" in text and "0.377" in text
+
+
+def test_model_card_without_repeated_cv(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from src.models.model_card import build_model_card, render_markdown
+
+    metrics, raw = _fake_metrics(tmp_path, with_repeated=False)
+    card = build_model_card(metrics, raw, model_file=tmp_path / "missing.joblib")
+    assert card["performance"]["repeated_cv"] is None
+    assert "Repeated CV" not in render_markdown(card)
+
+
+def test_model_card_missing_inputs_raise_clear_errors(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from src.models.model_card import build_model_card
+
+    with pytest.raises(FileNotFoundError, match="src.pipeline"):
+        build_model_card(tmp_path, tmp_path / "raw.csv")
+    metrics, _ = _fake_metrics(tmp_path)
+    with pytest.raises(FileNotFoundError, match="src.data.download"):
+        build_model_card(metrics, tmp_path / "nope.csv")
+
+
+def test_model_card_model_file_time_is_recorded(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from src.models.model_card import build_model_card
+
+    metrics, raw = _fake_metrics(tmp_path)
+    model = tmp_path / "final_model.joblib"
+    model.write_bytes(b"x")
+    assert build_model_card(metrics, raw, model_file=model)["model_trained_at"] is not None
