@@ -7,6 +7,12 @@ into a ranked, costed retention plan.
 Under placeholder costs, that earns **+12,400 per 1,000 customers**, while spending the same
 budget at random **loses 3,400**.
 
+> **Caveat: snapshot data.** In this dataset, `tenure` and `TotalCharges` for churned customers are
+> measured when they left, while active customers are measured today. The model can partly learn
+> "short tenure = already gone", which a live system scoring active customers cannot rely on, so
+> the numbers below are likely optimistic. Details and a sensitivity check:
+> [reports/final_report.md, section 6](reports/final_report.md).
+
 ## Problem
 A subscription telecom business loses about 26.5% of its customers in a month. Retention
 offers cost money, so they should go to customers who are both **likely to leave** and
