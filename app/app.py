@@ -1,6 +1,6 @@
 """Streamlit dashboard for the churn model.
 
-Run from the project root:  .venv\\Scripts\\python -m streamlit run app/app.py
+Run from the project root:  python -m streamlit run app/app.py
 """
 
 from __future__ import annotations
@@ -48,8 +48,8 @@ if not helpers.model_available():
     st.title("Churn Risk Dashboard")
     st.error(
         "No trained model found in `models/`. Run these from the project root, then reload:\n\n"
-        "```\n.venv\\Scripts\\python -m src.data.download\n"
-        ".venv\\Scripts\\python -m src.pipeline\n```"
+        "```\npython -m src.data.download\n"
+        "python -m src.pipeline\n```"
     )
     st.stop()
 

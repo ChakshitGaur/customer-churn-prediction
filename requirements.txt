@@ -1,4 +1,4 @@
-# Pinned on Python 3.14 (Windows). Install: pip install -r requirements.txt
+# Pinned on Python 3.14. Install: pip install -r requirements.txt
 # Core
 joblib==1.6.0
 numpy==2.5.4

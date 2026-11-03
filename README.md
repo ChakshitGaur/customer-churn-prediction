@@ -98,16 +98,27 @@ How the model would be watched in production (drift alerts, calibration checks, 
 - Engineered features gave no accuracy gain, so the final model uses raw features.
 - A column-order bug in `set_output` would have mislabelled SHAP explanations; it's fixed and covered by a regression test.
 
-## How to run (Windows)
+## How to run
+
+Needs Python 3.14 (the versions in `requirements.txt` are pinned on it). Create a virtual environment and activate it:
 
 ```bash
 python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-.venv\Scripts\python -m src.data.download
-.venv\Scripts\python -m src.pipeline
-.venv\Scripts\python -m pytest
-.venv\Scripts\python -m streamlit run app/app.py
+source .venv/bin/activate      # Linux / macOS
+.venv\Scripts\activate         # Windows (cmd or PowerShell)
 ```
+
+Then the same commands work on every platform:
+
+```bash
+python -m pip install -r requirements.txt
+python -m src.data.download
+python -m src.pipeline
+python -m pytest
+python -m streamlit run app/app.py
+```
+
+Without activating, call the venv's interpreter directly: `.venv/bin/python` (Linux / macOS) or `.venv\Scripts\python` (Windows).
 
 - The pipeline runs all 6 stages in about 6 minutes: clean → split → features → modeling → evaluation and SHAP → calibration and risk list.
 - **Outputs:** metrics in `reports/metrics/`, figures in `reports/figures/`, and the customer list in `reports/output/customer_risk_list.csv` (gitignored).

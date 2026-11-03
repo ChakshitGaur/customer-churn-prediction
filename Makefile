@@ -1,6 +1,7 @@
 # Each target is a plain Python command, so it also works without `make`
-# (copy the command after the tab). Windows venv paths are used below.
-PY := .venv/Scripts/python.exe
+# (copy the command after the tab). The venv interpreter is found on Windows
+# (.venv/Scripts) and Linux/macOS (.venv/bin); override with `make PY=...`.
+PY ?= $(if $(wildcard .venv/Scripts/python.exe),.venv/Scripts/python.exe,.venv/bin/python)
 
 .PHONY: help setup lint format test pipeline app clean
 
