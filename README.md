@@ -96,6 +96,7 @@ How the model would be watched in production (drift alerts, calibration checks, 
 **Findings I didn't expect:**
 - Untuned, the logistic regression baseline beat every tree model.
 - Engineered features gave no accuracy gain, so the final model uses raw features.
+- An interpretable Explainable Boosting Machine matches XGBoost in repeated CV (PR-AUC 0.668 vs 0.666), with exact per-feature explanations. See section 2 of the report; `python -m src.models.ebm`.
 - A column-order bug in `set_output` would have mislabelled SHAP explanations; it's fixed and covered by a regression test.
 
 ## How to run
@@ -139,7 +140,7 @@ churn-project/
 │   ├── features/                  # build_features, preprocessing pipeline
 │   ├── models/                    # baseline, train, tune, select, evaluate, analysis,
 │   │                              # predict (calibration + risk list), recommend, business,
-│   │                              # monitor (PSI drift), model_card
+│   │                              # monitor (PSI drift), model_card, ebm
 │   ├── explain/                   # SHAP: global, per-customer, plain-language reasons
 │   └── utils/                     # logging, seeding
 ├── app/                           # Streamlit dashboard (app.py) + tested helpers

@@ -8,6 +8,7 @@ scipy==1.18.1
 # Modeling & explainability
 lightgbm==4.7.0
 shap==0.54.1
+interpret-core==0.7.8
 xgboost==3.4.1
 # Visualization
 matplotlib==3.11.2
