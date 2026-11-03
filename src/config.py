@@ -55,6 +55,7 @@ OFFER_SUCCESS_RATE: float = 0.30  # share of contacted would-be churners who the
 # Break-even probability for a perfectly calibrated model:
 #   cost / (value * success) = 50 / (500 * 0.30) = 0.33
 
+MODEL_MAX_AGE_DAYS: int = 90  # dashboard shows a note when the model is older than this
 THRESHOLD_BOOTSTRAP_N: int = 1000  # resamples in src/models/threshold_bootstrap.py
 
 # Grid for the profit sensitivity analysis (src/models/sensitivity.py).

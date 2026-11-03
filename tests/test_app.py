@@ -151,3 +151,83 @@ def test_headline_metrics_formats_saved_results(tmp_path) -> None:
         "Top-10% lift": "2.92x",
         "Profit / 1,000 customers": "12,441",
     }
+
+
+# --- model staleness notices --------------------------------------------------
+
+
+def _card_setup(tmp_path):  # type: ignore[no-untyped-def]
+    """A raw file, a model file and a matching model card written the way the pipeline does."""
+    from src.models.model_card import build_model_card
+    from tests.test_models import _fake_metrics
+
+    metrics, raw = _fake_metrics(tmp_path)
+    model = tmp_path / "final_model.joblib"
+    model.write_bytes(b"model")
+    card = build_model_card(metrics, raw, model_file=model)
+    card_path = tmp_path / "model_card.json"
+    card_path.write_text(json.dumps(card))
+    return card_path, raw, model, card
+
+
+def test_notices_empty_when_everything_matches(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    card_path, raw, model, _ = _card_setup(tmp_path)
+    assert helpers.model_notices(card_path, raw, model) == []
+
+
+def test_notice_when_model_card_is_missing(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    notices = helpers.model_notices(tmp_path / "none.json", tmp_path / "raw.csv", tmp_path / "m")
+    assert [n.level for n in notices] == ["info"] and "model card" in notices[0].message
+
+
+def test_warning_when_raw_data_changed(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    card_path, raw, model, _ = _card_setup(tmp_path)
+    raw.write_text("a,b\n9,9\n")
+    notices = helpers.model_notices(card_path, raw, model)
+    assert [n.level for n in notices] == ["warning"] and "raw data has changed" in notices[
+        0
+    ].message
+
+
+def test_missing_raw_file_skips_the_data_check(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    card_path, raw, model, _ = _card_setup(tmp_path)
+    raw.unlink()
+    assert helpers.model_notices(card_path, raw, model) == []
+
+
+def test_warning_when_model_file_replaced_after_card(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    import os
+
+    card_path, raw, model, _ = _card_setup(tmp_path)
+    os.utime(model, (1_000_000_000, 1_000_000_000))  # a different modification time
+    notices = helpers.model_notices(card_path, raw, model)
+    assert [n.level for n in notices] == ["warning"] and "replaced" in notices[0].message
+
+
+def test_warning_when_library_versions_differ(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    card_path, raw, model, card = _card_setup(tmp_path)
+    card["code"]["libraries"]["scikit-learn"] = "0.0.1"
+    card_path.write_text(json.dumps(card))
+    notices = helpers.model_notices(card_path, raw, model)
+    assert [n.level for n in notices] == ["warning"]
+    assert "scikit-learn 0.0.1" in notices[0].message
+
+
+def test_info_when_model_is_old_and_warnings_sort_first(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from datetime import UTC, datetime, timedelta
+
+    card_path, raw, model, _ = _card_setup(tmp_path)
+    later = datetime.now(UTC) + timedelta(days=200)
+    old = helpers.model_notices(card_path, raw, model, now=later)
+    assert [n.level for n in old] == ["info"] and "days ago" in old[0].message
+    raw.write_text("a,b\n9,9\n")  # add a warning as well
+    both = helpers.model_notices(card_path, raw, model, now=later)
+    assert [n.level for n in both] == ["warning", "info"]
+
+
+def test_provenance_caption(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    _, _, _, card = _card_setup(tmp_path)
+    text = helpers.provenance_caption(card)
+    assert text.startswith("Trained 20") and f"data {card['data']['sha256'][:8]}" in text
+    assert helpers.provenance_caption(None) == "Provenance unknown (no model card)."
+    assert helpers.load_model_card(tmp_path / "missing.json") is None
