@@ -120,7 +120,7 @@ The ranking is what creates value. Spending the same budget at random loses mone
 ## 6. Limitations
 
 - **Placeholder economics.** Offer cost, customer value and success rate are assumptions. The threshold, tier sizes and profit figures depend on them.
-- **Snapshot data.** For churned customers, tenure and total charges are measured at the moment they left, while active customers are measured today. So a short tenure partly means "already gone", and the model can use that in training in a way it cannot when scoring live customers. A production system should take features at a fixed date *before* the prediction window. The size of the effect cannot be measured without dated data, but a sensitivity check bounds how much the model leans on these columns (repeated 5-fold CV on train + validation, 3 repeats, columns zeroed out so they carry no information; PR-AUC):
+- **Snapshot data.** For churned customers, tenure and total charges are measured at the moment they left, while active customers are measured today. So a short tenure partly means "already gone", and the model can use that in training in a way it cannot when scoring live customers. A production system should take features at a fixed date *before* the prediction window. The size of the effect cannot be measured without dated data, but a sensitivity check bounds how much the model leans on these columns (repeated 5-fold CV on train + validation, 3 repeats, columns zeroed out so they carry no information; PR-AUC; reproduce with `python -m src.models.ablation`, results in `reports/metrics/feature_ablation.csv`):
 
   | Columns removed | Baseline | Final model |
   |---|---|---|

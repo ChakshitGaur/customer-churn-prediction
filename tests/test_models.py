@@ -392,3 +392,32 @@ def test_make_tuned_pipeline_applies_params() -> None:
     pipe = make_tuned_pipeline("logreg", {"model__C": 0.5, "prep": "raw"}, y)
     assert pipe.named_steps["model"].C == 0.5
     assert "features" not in pipe.named_steps["prep"].named_steps
+
+
+# --- Feature ablation ---------------------------------------------------------
+
+
+def test_zero_columns_zeroes_only_requested_and_copies() -> None:
+    from src.models.ablation import zero_columns
+
+    X, _ = _toy_xy()
+    out = zero_columns(X, ["tenure"])
+    assert (out["tenure"] == 0).all()
+    assert X["tenure"].gt(0).any()  # original untouched
+    pd.testing.assert_series_equal(out["MonthlyCharges"], X["MonthlyCharges"])
+    with pytest.raises(KeyError):
+        zero_columns(X, ["not_a_column"])
+
+
+def test_feature_ablation_removing_signal_hurts() -> None:
+    from src.models.ablation import feature_ablation
+
+    X, y = _toy_xy()
+    pipes = {"baseline": make_baseline()}
+    table = feature_ablation(
+        pipes, X, y, scenarios={"none": [], "tenure": ["tenure"]}, n_splits=3, n_repeats=1
+    )
+    assert set(table["removed"]) == {"none", "tenure"}
+    assert len(table) == 2
+    pr = table.set_index("removed")["pr_auc"]
+    assert pr["tenure"] < pr["none"]
