@@ -211,10 +211,10 @@ The EBM matches the final model: PR-AUC difference **+0.002** (95% CI [−0.007,
 |---|---|---|
 | Split | Stratified 70 / 15 / 15 | No date column for a time-based split |
 | Features | 41 inputs; engineered features tested, raw chosen | Engineered features gave no accuracy gain in any model |
-| Models | Logistic regression, Random Forest, XGBoost, LightGBM with class weights | Cross-validated on train; top 3 tuned with 40-configuration searches |
+| Models | Logistic regression, Random Forest, XGBoost, LightGBM with class weights | Cross-validated on train; the two that the explanations support (logistic regression, XGBoost) tuned with 40-configuration searches. Random forest and LightGBM stay in the untuned comparison only |
 | Selection | Best **validation** PR-AUC among models the explanations support (logistic regression, XGBoost); a simpler model wins if it is within one standard error → XGBoost | Test set never used for a decision. The tuned models are statistically tied, so the rule avoids letting tiny score differences pick the shipped model |
 | Threshold | Maximize expected profit on **validation** | Ties the model to the business goal |
 | Calibration | Sigmoid on validation, threshold mapped exactly | Honest probabilities; same customers contacted |
 | Test | Scored once at the end | Unbiased estimate of real performance |
 
-Reproduce everything with one command: `python -m src.pipeline` (about 6 minutes).
+Reproduce everything with one command: `python -m src.pipeline` (about 2 minutes on a 4-core machine).

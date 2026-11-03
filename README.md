@@ -124,7 +124,7 @@ python -m streamlit run app/app.py
 Without activating, call the venv's interpreter directly: `.venv/bin/python` (Linux / macOS) or `.venv\Scripts\python` (Windows).
 
 - `pytest` includes an end-to-end smoke test (about a minute) that runs the whole pipeline on synthetic data in a temp directory; skip it with `pytest -m "not slow"`. The `CHURN_ROOT` environment variable redirects every data, model and report path.
-- The pipeline runs all 7 stages in about 6 minutes: clean → split → features → modeling → evaluation and SHAP → calibration and risk list → model card.
+- The pipeline runs all 7 stages in about 2 minutes on a 4-core machine: clean → split → features → modeling → evaluation and SHAP → calibration and risk list → model card.
 - **Model card:** the last stage writes `models/model_card.json` (next to the model) and `reports/model_card.md`: data hash, split sizes, hyperparameters, threshold, metrics, library versions, git commit and known limitations. Rerun it alone with `python -m src.models.model_card`. Both files are gitignored because they record the local environment.
 - **Outputs:** metrics in `reports/metrics/`, figures in `reports/figures/`, and the customer list in `reports/output/customer_risk_list.csv` (gitignored).
 - **Business assumptions** (offer cost, customer value, success rate) are placeholders in [`src/config.py`](src/config.py). Change them and rerun.

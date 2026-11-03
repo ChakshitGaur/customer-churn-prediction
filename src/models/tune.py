@@ -28,12 +28,6 @@ SEARCH_SPACES: dict[str, dict[str, Any]] = {
         "model__l1_ratio": [0.0, 0.5, 1.0],
         "model__solver": ["saga"],
     },
-    "random_forest": {
-        "model__n_estimators": randint(200, 800),
-        "model__max_depth": [None, 6, 8, 12, 16],
-        "model__min_samples_leaf": randint(2, 40),
-        "model__max_features": ["sqrt", 0.3, 0.5],
-    },
     "xgboost": {
         "model__n_estimators": randint(100, 800),
         "model__learning_rate": loguniform(0.005, 0.2),
