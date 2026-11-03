@@ -507,3 +507,41 @@ def test_model_card_model_file_time_is_recorded(tmp_path) -> None:  # type: igno
     model = tmp_path / "final_model.joblib"
     model.write_bytes(b"x")
     assert build_model_card(metrics, raw, model_file=model)["model_trained_at"] is not None
+
+
+# --- Explainable Boosting Machine ---------------------------------------------
+
+
+def test_ebm_pipeline_fits_and_importances_map_to_source_features() -> None:
+    from src.models.ebm import importance_by_feature, make_ebm_pipeline
+
+    X, y = _toy_xy()
+    pipe = make_ebm_pipeline().fit(X, y)
+    proba = pipe.predict_proba(X)[:, 1]
+    assert compute_metrics(y, proba)["roc_auc"] > 0.8
+    imp = importance_by_feature(pipe)
+    assert imp["share"].sum() == pytest.approx(1.0)
+    assert imp["importance"].is_monotonic_decreasing
+    assert not imp["feature"].str.contains("__").any()  # one-hot columns mapped back
+    assert "Contract" in set(imp["feature"])
+
+
+def test_ebm_is_purely_additive() -> None:
+    from src.models.ebm import make_ebm_pipeline
+
+    X, y = _toy_xy()
+    model = make_ebm_pipeline().fit(X, y).named_steps["model"]
+    assert not any(" & " in name for name in model.term_names_)  # no interaction terms
+
+
+def test_compare_scores_pairs_ebm_against_each_other_model() -> None:
+    from src.models.ebm import compare_scores, make_ebm_pipeline
+    from src.models.repeated_cv import repeated_cv_scores
+
+    X, y = _toy_xy()
+    pipes = {"baseline": make_baseline(), "ebm": make_ebm_pipeline()}
+    scores = repeated_cv_scores(pipes, X, y, n_splits=3, n_repeats=2)
+    out = compare_scores(scores, n_train=len(X) * 2 // 3, n_test=len(X) // 3)
+    assert set(out["per_model"]) == {"baseline", "ebm"}
+    assert set(out["paired"]) == {"ebm_minus_baseline"}
+    assert set(out["paired"]["ebm_minus_baseline"]) >= {"pr_auc", "roc_auc"}

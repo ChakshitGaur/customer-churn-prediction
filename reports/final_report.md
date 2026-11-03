@@ -133,6 +133,16 @@ The ranking is what creates value. Spending the same budget at random loses mone
 - **Correlation, not causation.** Two-year customers churn less, but converting someone to a two-year contract won't necessarily give them the same risk. The control-group test in section 4 is how to find out.
 - **Calibration data size.** Calibration was fit on 1,057 validation customers. It should be checked again as new outcomes arrive.
 
+**Interpretable alternative: Explainable Boosting Machine.** An EBM is an additive model with one learned shape per feature, so every prediction splits exactly into per-feature contributions, with no SHAP approximation. It was compared with the same 5×5 repeated CV on train + validation (test set untouched; no interaction terms, raw features; `python -m src.models.ebm`):
+
+| Model | PR-AUC | ROC-AUC |
+|---|---|---|
+| Logistic regression baseline | 0.656 | 0.844 |
+| Final model (XGBoost) | 0.666 | 0.847 |
+| **EBM** | **0.668** | **0.847** |
+
+The EBM matches the final model: PR-AUC difference **+0.002** (95% CI [−0.007, +0.010], p = 0.73), and it is **+0.011** over the baseline (95% CI [−0.001, +0.024], p = 0.07). Its feature importances agree closely with SHAP (rank correlation 0.90; Contract first in both). So the same accuracy is available from a model whose explanations are exact. The shipped model is unchanged: switching would also mean redoing calibration, the threshold and the dashboard's explanations, and a single-split test evaluation, so it is a decision for you, not an automatic swap. Details in `reports/metrics/ebm_comparison.json` and `ebm_importance.csv`.
+
 ---
 
 ## 7. How this was built
