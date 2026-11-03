@@ -51,8 +51,12 @@ def candidate_models(y_train: pd.Series) -> dict[str, BaseEstimator]:
             n_estimators=400,
             learning_rate=0.05,
             max_depth=4,
-            subsample=0.8,
-            colsample_bytree=0.8,
+            # No row/column subsampling. XGBoost's sampling draws random numbers with
+            # platform-specific generators, so the same seed gave different models on Linux
+            # and Windows (validation PR-AUC 0.6368 vs 0.6410), which could flip model
+            # selection. Without sampling the fit is identical for every seed and platform.
+            subsample=1.0,
+            colsample_bytree=1.0,
             scale_pos_weight=pos_weight,
             eval_metric="aucpr",
             n_jobs=-1,

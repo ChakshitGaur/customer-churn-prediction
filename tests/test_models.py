@@ -675,3 +675,26 @@ def test_every_explainable_model_works_with_compute_shap() -> None:
         pipe = make_model_pipeline(models[name], engineered=False).fit(X, y)
         sv = compute_shap(pipe, X.head(10))
         assert sv.values.shape[0] == 10 and sv.values.ndim == 2, name
+
+
+# --- Cross-platform reproducibility -------------------------------------------
+
+
+def test_xgboost_candidate_does_not_subsample_and_search_space_agrees() -> None:
+    _, y = _toy_xy()
+    params = candidate_models(y)["xgboost"].get_params()
+    assert params["subsample"] == 1.0 and params["colsample_bytree"] == 1.0
+    assert "model__subsample" not in SEARCH_SPACES["xgboost"]
+    assert "model__colsample_bytree" not in SEARCH_SPACES["xgboost"]
+
+
+def test_xgboost_fit_does_not_depend_on_the_seed() -> None:
+    # Subsampling draws platform-specific random numbers; without it the seed is irrelevant,
+    # which is what makes results match across machines.
+    X, y = _toy_xy()
+    preds = []
+    for seed in (0, 1, 42):
+        est = candidate_models(y)["xgboost"].set_params(random_state=seed, n_estimators=50)
+        preds.append(make_model_pipeline(est, engineered=False).fit(X, y).predict_proba(X)[:, 1])
+    np.testing.assert_array_equal(preds[0], preds[1])
+    np.testing.assert_array_equal(preds[0], preds[2])

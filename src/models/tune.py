@@ -39,8 +39,8 @@ SEARCH_SPACES: dict[str, dict[str, Any]] = {
         "model__learning_rate": loguniform(0.005, 0.2),
         "model__max_depth": randint(2, 6),
         "model__min_child_weight": randint(1, 20),
-        "model__subsample": uniform(0.6, 0.4),
-        "model__colsample_bytree": uniform(0.4, 0.6),
+        # subsample / colsample_bytree stay at 1.0 (see candidate_models): sampling is not
+        # reproducible across platforms.
         "model__reg_lambda": loguniform(0.1, 50),
         "model__gamma": uniform(0, 2),
     },
