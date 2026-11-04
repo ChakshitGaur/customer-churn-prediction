@@ -239,3 +239,108 @@ def test_incomplete_model_card_gives_a_note_not_a_crash(tmp_path) -> None:  # ty
     notices = helpers.model_notices(card_path, tmp_path / "raw.csv", tmp_path / "m")
     assert [n.level for n in notices] == ["info"] and "incomplete" in notices[0].message
     assert helpers.provenance_caption({"model": {}}) == "Trained unknown date"
+
+
+# --- input validation ---------------------------------------------------------
+
+
+def _bad(**cols):  # type: ignore[no-untyped-def]
+    return _raw_batch().assign(**cols)
+
+
+def test_form_options_cover_every_model_category_and_match_training_data() -> None:
+    from src.features.pipeline import RAW_CATEGORICAL
+
+    assert set(RAW_CATEGORICAL) <= set(helpers.FORM_OPTIONS)
+    train = config.PROCESSED_DIR / "train.csv"
+    if train.exists():  # needs the pipeline's outputs; otherwise only the coverage check runs
+        df = pd.read_csv(train)
+        for col in RAW_CATEGORICAL:
+            assert set(df[col].unique()) <= {str(v) for v in helpers.FORM_OPTIONS[col]}, col
+
+
+def test_wrong_case_category_is_rejected_with_a_hint() -> None:
+    with pytest.raises(ValueError, match="unrecognised") as exc:
+        helpers.prepare_batch(_bad(Contract="MONTH-TO-MONTH"))
+    assert "'MONTH-TO-MONTH' -> 'Month-to-month'" in str(exc.value)
+    assert "Allowed: Month-to-month, One year, Two year" in str(exc.value)
+
+
+def test_unknown_category_names_the_column_and_rows() -> None:
+    with pytest.raises(ValueError) as exc:
+        helpers.prepare_batch(_bad(Contract="Three year"))
+    msg = str(exc.value)
+    assert "'Contract'" in msg and "'Three year'" in msg and "3 row(s)" in msg and "c0" in msg
+
+
+def test_blank_categorical_is_rejected() -> None:
+    with pytest.raises(ValueError, match="'gender' is blank or missing"):
+        helpers.prepare_batch(_bad(gender=[None, "Male", "Female"]))
+
+
+@pytest.mark.parametrize(
+    ("col", "value", "message"),
+    [
+        ("tenure", -5, "'tenure' is negative"),
+        ("tenure", 5000, "'tenure' is above 120"),
+        ("MonthlyCharges", float("nan"), "'MonthlyCharges' is blank or missing"),
+        ("MonthlyCharges", "29.85 USD", "'MonthlyCharges' has non-numeric values"),
+        ("MonthlyCharges", 1e6, "'MonthlyCharges' is above 300"),
+        ("TotalCharges", "abc", "'TotalCharges' has non-numeric values"),
+    ],
+)
+def test_bad_numbers_are_rejected(col: str, value, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        helpers.prepare_batch(_bad(**{col: value}).astype({col: object}))
+
+
+def test_blank_total_charges_only_allowed_for_new_customers() -> None:
+    ok = _bad(tenure=0, TotalCharges=" ").astype({"TotalCharges": object})
+    assert helpers.prepare_batch(ok)["TotalCharges"].eq(0.0).all()
+    with pytest.raises(ValueError, match="'TotalCharges' is blank or missing"):
+        helpers.prepare_batch(_bad(tenure=12, TotalCharges=" ").astype({"TotalCharges": object}))
+
+
+def test_senior_citizen_yes_no_text_is_accepted_and_garbage_rejected() -> None:
+    out = helpers.prepare_batch(_bad(SeniorCitizen=["Yes", "no", " YES "]))
+    assert out["SeniorCitizen"].tolist() == [1, 0, 1]
+    with pytest.raises(ValueError, match="'SeniorCitizen' must be 0/1"):
+        helpers.prepare_batch(_bad(SeniorCitizen=["maybe", 0, 1]))
+
+
+def test_all_problems_are_reported_together() -> None:
+    with pytest.raises(ValueError, match="Found 3 problem") as exc:
+        helpers.prepare_batch(_bad(Contract="Three year", tenure=-1, gender=None))
+    msg = str(exc.value)
+    assert "'Contract'" in msg and "'tenure'" in msg and "'gender'" in msg
+
+
+def test_whitespace_padding_is_still_fine() -> None:
+    out = helpers.prepare_batch(_bad(Partner=" No ", Contract=" Month-to-month"))
+    assert out["Contract"].eq("Month-to-month").all()
+
+
+# --- reading uploads ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("data", "message"),
+    [
+        (b"", "file is empty"),
+        (b"   \n\n", "file is empty"),
+        (bytes(range(256)) * 20, "not a UTF-8 text CSV"),
+        (b"customerID;tenure;Contract\nA;1;Month-to-month\n", "semicolon"),
+        (b"customerID\ttenure\tContract\nA\t1\tMonth-to-month\n", "tab"),
+    ],
+)
+def test_read_csv_upload_gives_plain_errors(data: bytes, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        helpers.read_csv_upload(data)
+
+
+def test_read_csv_upload_handles_bom_and_crlf() -> None:
+    raw = _raw_batch()
+    data = ("﻿" + raw.to_csv(index=False, lineterminator="\r\n")).encode("utf-8")
+    out = helpers.read_csv_upload(data)
+    assert list(out.columns) == list(raw.columns) and len(out) == 3
+    assert helpers.prepare_batch(out).shape[0] == 3
