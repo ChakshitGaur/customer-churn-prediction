@@ -442,9 +442,42 @@ def customer_waterfall(model: CalibratedModel, customer: pd.DataFrame) -> Figure
     return plot_customer_waterfall(group_shap(sv), X, base_value, row=0, max_display=10)
 
 
+FORMULA_PREFIXES: tuple[str, ...] = ("=", "+", "-", "@", "\t", "\r")
+
+
+def escape_formulas(df: pd.DataFrame) -> pd.DataFrame:
+    """Neutralize text that a spreadsheet would run as a formula.
+
+    Excel and similar programs treat a cell starting with ``=``, ``+``, ``-``, ``@`` (or a tab
+    or carriage return) as a formula. A customer ID such as ``=HYPERLINK(...)`` in an uploaded
+    file would then run when the downloaded list is opened. Text cells that start with one of
+    those characters get a leading apostrophe, the standard defence (spreadsheets show the
+    text as typed and hide the apostrophe). Numeric columns are left alone, so negative numbers
+    stay numbers.
+
+    Args:
+        df: Frame to export; not modified.
+
+    Returns:
+        A copy with the dangerous text cells prefixed.
+    """
+    out = df.copy()
+    for col in out.columns:
+        if pd.api.types.is_numeric_dtype(out[col]) or pd.api.types.is_bool_dtype(out[col]):
+            continue
+        out[col] = out[col].map(
+            lambda v: f"'{v}" if isinstance(v, str) and v.startswith(FORMULA_PREFIXES) else v
+        )
+    return out
+
+
 def to_csv_bytes(df: pd.DataFrame) -> bytes:
-    """CSV bytes for a download button."""
-    return df.to_csv(index=False).encode("utf-8")
+    """CSV bytes for a download button, safe to open in a spreadsheet.
+
+    See :func:`escape_formulas`: values starting with ``=``, ``+``, ``-`` or ``@`` come out
+    with a leading apostrophe, so a customer ID that was a formula in the upload stays text.
+    """
+    return escape_formulas(df).to_csv(index=False).encode("utf-8")
 
 
 def sample_batch(path: Path = PROCESSED_DIR / "test.csv", n: int = 200) -> pd.DataFrame:

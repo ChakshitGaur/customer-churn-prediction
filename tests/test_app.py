@@ -356,3 +356,45 @@ def test_dashboard_config_is_local_only_with_an_upload_cap() -> None:
     assert cfg["server"]["address"] == "localhost"
     # Streamlit's default is 200 MB; scoring runs at roughly 2,000 customers per second.
     assert 1 <= cfg["server"]["maxUploadSize"] <= 50
+
+
+# --- download safety (spreadsheet formula injection) ---------------------------
+
+
+DANGEROUS_IDS = ["=1+1", "+cmd|' /C calc'!A0", "-2+3", "@SUM(A1)", "\t=1", "\r=1"]
+
+
+def test_download_neutralizes_formula_like_text() -> None:
+    import io
+
+    ids = [*DANGEROUS_IDS, "7590-VHVEG", "ünï-客户", "a=b", "x,y", 'say "hi"']
+    df = pd.DataFrame({"customerID": ids, "reason_1": ["=cmd"] * len(ids), "p": [-0.5] * len(ids)})
+    back = pd.read_csv(io.BytesIO(helpers.to_csv_bytes(df)), dtype={"customerID": str})
+    out = dict(zip(ids, back["customerID"], strict=True))
+    for bad in DANGEROUS_IDS:
+        assert out[bad] == "'" + bad  # prefixed, original text preserved after the apostrophe
+    for safe in ["7590-VHVEG", "ünï-客户", "a=b", "x,y", 'say "hi"']:
+        assert out[safe] == safe  # ordinary IDs, including odd characters, are untouched
+    assert (back["reason_1"] == "'=cmd").all()
+    assert (back["p"] == -0.5).all()  # negative numbers in numeric columns stay numbers
+
+
+def test_escape_formulas_does_not_modify_its_input_and_skips_numbers() -> None:
+    df = pd.DataFrame(
+        {"id": ["=x", "ok"], "n": [-1, 2], "flag": [True, False], "none": [None, "-y"]}
+    )
+    before = df.copy()
+    out = helpers.escape_formulas(df)
+    pd.testing.assert_frame_equal(df, before)
+    assert out["id"].tolist() == ["'=x", "ok"]
+    assert out["n"].tolist() == [-1, 2] and out["flag"].tolist() == [True, False]
+    assert out["none"].tolist()[1] == "'-y" and pd.isna(out["none"].tolist()[0])
+
+
+def test_scored_batch_with_formula_ids_downloads_safely() -> None:
+    raw = _raw_batch().assign(customerID=["=1+1", "@SUM(A1)", "normal-1"])
+    model, _, _ = _calibrated_toy()
+    out = helpers.score(model, helpers.prepare_batch(raw))
+    text = helpers.to_csv_bytes(out).decode()
+    assert "'=1+1" in text and "'@SUM(A1)" in text and "normal-1" in text
+    assert not any(line.startswith(("=", "@")) for line in text.splitlines())
