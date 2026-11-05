@@ -740,3 +740,10 @@ def test_only_explainable_models_are_tuned() -> None:
 
     assert set(TUNE_CANDIDATES) == set(EXPLAINABLE_MODELS)
     assert set(TUNE_CANDIDATES) <= set(SEARCH_SPACES)  # every tuned model has a search space
+
+
+def test_logreg_candidate_has_headroom_for_saga_tuning() -> None:
+    # saga with large C / mixed penalties needed more than 2,000 iterations for a couple of
+    # the 40 tuning configurations; a lower limit brings the ConvergenceWarnings back.
+    _, y = _toy_xy()
+    assert candidate_models(y)["logreg"].get_params()["max_iter"] >= 10_000
