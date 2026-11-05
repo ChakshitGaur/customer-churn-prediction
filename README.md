@@ -63,7 +63,7 @@ Full findings and recommendations: **[reports/final_report.md](reports/final_rep
 
 A Streamlit app with three tabs:
 - **Single customer:** a form gives the calibrated churn probability, risk tier, top 3 SHAP reasons, recommended actions, a SHAP waterfall and a "what if they sign a 1-year contract?" estimate.
-- **Batch scoring:** upload a CSV (or use the built-in sample) to get a ranked list with tier filters and a CSV download, plus a data-drift check (PSI) against the training data.
+- **Batch scoring:** upload a CSV (up to 10 MB, about 70,000 customers; or use the built-in sample) to get a ranked list with tier filters and a CSV download, plus a data-drift check (PSI) against the training data. Files with bad values are rejected with a message naming the column, the rows and the fix.
 - **Model insights:** headline metrics, risk tiers, targeting strategies and the key charts.
 
 The dashboard also checks the model against its model card and warns when the raw data has changed since training, the model file was replaced after the card was written, or library versions differ. It shows when the model was trained in the sidebar, and notes models older than 90 days (`MODEL_MAX_AGE_DAYS` in `src/config.py`).
