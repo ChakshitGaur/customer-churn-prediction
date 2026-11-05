@@ -9,7 +9,7 @@ repos:
         name: ruff
         entry: ruff check
         language: python
-        additional_dependencies: ["ruff==0.17.1"]
+        additional_dependencies: ["ruff==0.17.3"]
         types: [python]
         files: ^(app|src|tests)/
       - id: black
