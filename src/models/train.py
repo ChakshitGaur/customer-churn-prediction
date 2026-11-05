@@ -39,7 +39,10 @@ def candidate_models(y_train: pd.Series) -> dict[str, BaseEstimator]:
     """
     pos_weight = float((y_train == 0).sum() / (y_train == 1).sum())
     return {
-        "logreg": LogisticRegression(class_weight="balanced", max_iter=2000, random_state=SEED),
+        # 10,000 iterations: the saga solver tried during tuning (large C, mixed penalties) did
+        # not converge within 2,000 for a couple of the 40 configurations. The best model
+        # converges in ~300, so this changes no result; it only removes the warnings.
+        "logreg": LogisticRegression(class_weight="balanced", max_iter=10_000, random_state=SEED),
         "random_forest": RandomForestClassifier(
             n_estimators=400,
             min_samples_leaf=5,

@@ -170,19 +170,18 @@ with tab_batch:
     upload = up_col.file_uploader("Customer CSV", type="csv")
     use_sample = sample_col.button("Use sample (200 test customers)")
 
-    raw = None
-    if upload is not None:
-        raw = helpers.read_csv_upload(upload.getvalue())
-    elif use_sample or st.session_state.get("batch_sample"):
-        st.session_state["batch_sample"] = True
-        raw = helpers.sample_batch()
-
     batch = None
-    if raw is not None:
-        try:
+    try:
+        raw = None
+        if upload is not None:
+            raw = helpers.read_csv_upload(upload.getvalue())
+        elif use_sample or st.session_state.get("batch_sample"):
+            st.session_state["batch_sample"] = True
+            raw = helpers.sample_batch()
+        if raw is not None:
             batch = helpers.prepare_batch(raw)
-        except ValueError as err:
-            st.error(f"Could not read the file: {err}")
+    except ValueError as err:
+        st.error(f"Could not read the file: {err}")
     if batch is not None:
         risk = helpers.score(model, batch)
 
