@@ -21,6 +21,9 @@ from matplotlib.figure import Figure
 from src.config import (
     FIGURES_DIR,
     ID_COL,
+    MAX_MONTHLY_CHARGES,
+    MAX_TENURE_MONTHS,
+    MAX_TOTAL_CHARGES,
     METRICS_DIR,
     MODEL_MAX_AGE_DAYS,
     MODELS_DIR,
@@ -31,6 +34,7 @@ from src.config import (
 from src.data.clean import clean
 from src.data.load import EXPECTED_COLUMNS
 from src.explain.shap_analysis import compute_shap, group_shap, plot_customer_waterfall
+from src.features.pipeline import RAW_CATEGORICAL
 from src.models.model_card import file_sha256, library_versions
 from src.models.predict import CALIBRATED_MODEL_FILE, CalibratedModel, build_risk_list
 
@@ -269,14 +273,101 @@ def make_customer(inputs: dict[str, Any], customer_id: str = "NEW-CUSTOMER") -> 
     return pd.DataFrame([{ID_COL: customer_id, **{c: row[c] for c in FEATURE_COLUMNS}}])
 
 
+NUMERIC_LIMITS: dict[str, float] = {
+    "tenure": MAX_TENURE_MONTHS,
+    "MonthlyCharges": MAX_MONTHLY_CHARGES,
+    "TotalCharges": MAX_TOTAL_CHARGES,
+}
+SENIOR_TEXT: dict[str, int] = {"0": 0, "1": 1, "0.0": 0, "1.0": 1, "no": 0, "yes": 1}
+MAX_EXAMPLES: int = 3
+
+
+def _examples(values: pd.Series) -> str:
+    """Up to :data:`MAX_EXAMPLES` distinct values, quoted, plus how many more there are."""
+    distinct = list(dict.fromkeys(values.astype(str)))
+    shown = ", ".join(f"'{v}'" for v in distinct[:MAX_EXAMPLES])
+    more = len(distinct) - MAX_EXAMPLES
+    return shown + (f" and {more} more" if more > 0 else "")
+
+
+def _where(raw: pd.DataFrame, mask: pd.Series) -> str:
+    """Count of offending rows and the first few customer IDs."""
+    ids = raw.loc[mask, ID_COL].head(MAX_EXAMPLES)
+    return f"{int(mask.sum())} row(s), e.g. customerID {', '.join(ids)}"
+
+
+def _batch_problems(raw: pd.DataFrame) -> list[str]:
+    """Everything wrong with the values in an uploaded batch (empty list if none)."""
+    problems: list[str] = []
+
+    num: dict[str, pd.Series] = {}
+    for col, cap in NUMERIC_LIMITS.items():
+        text = raw[col].astype("string").str.strip()
+        blank = text.isna() | (text == "")
+        num[col] = pd.to_numeric(text.where(~blank), errors="coerce")
+        # A blank TotalCharges is valid only for brand-new customers (tenure 0).
+        allowed_blank = blank & (num["tenure"] == 0) if col == "TotalCharges" else blank & False
+        missing = blank & ~allowed_blank
+        not_number = ~blank & num[col].isna()
+        if missing.any():
+            problems.append(f"'{col}' is blank or missing in {_where(raw, missing)}")
+        if not_number.any():
+            problems.append(
+                f"'{col}' has non-numeric values ({_examples(raw.loc[not_number, col])}) "
+                f"in {_where(raw, not_number)}; remove units or text"
+            )
+        negative = num[col] < 0
+        if negative.any():
+            problems.append(f"'{col}' is negative in {_where(raw, negative)}")
+        too_big = num[col] > cap
+        if too_big.any():
+            problems.append(
+                f"'{col}' is above {cap:g}, which looks like a data error, in "
+                f"{_where(raw, too_big)}"
+            )
+
+    senior = raw["SeniorCitizen"].astype("string").str.strip().str.lower().map(SENIOR_TEXT)
+    if senior.isna().any():
+        bad = senior.isna()
+        found = _examples(raw.loc[bad, "SeniorCitizen"])
+        problems.append(
+            f"'SeniorCitizen' must be 0/1 (or No/Yes); found {found} in {_where(raw, bad)}"
+        )
+
+    for col in RAW_CATEGORICAL:
+        allowed = [str(v) for v in FORM_OPTIONS[col]]
+        text = raw[col].astype("string").str.strip()
+        blank = text.isna() | (text == "")
+        unknown = ~blank & ~text.isin(allowed)
+        if blank.any():
+            problems.append(f"'{col}' is blank or missing in {_where(raw, blank)}")
+        if unknown.any():
+            hints = {
+                v: next((a for a in allowed if a.lower() == v.lower()), None)
+                for v in dict.fromkeys(text[unknown].astype(str))
+            }
+            fixes = [f"'{v}' -> '{a}'" for v, a in hints.items() if a][:MAX_EXAMPLES]
+            hint = f" Did you mean: {', '.join(fixes)}?" if fixes else ""
+            problems.append(
+                f"'{col}' has unrecognised values ({_examples(text[unknown])}) in "
+                f"{_where(raw, unknown)}. Allowed: {', '.join(allowed)}.{hint}"
+            )
+    return problems
+
+
 def prepare_batch(raw: pd.DataFrame) -> pd.DataFrame:
     """Validate and clean an uploaded batch in the raw Telco format.
 
     A ``Churn`` column is allowed (e.g. labelled history) and is dropped, so the
-    ranked list never shows the outcome.
+    ranked list never shows the outcome. Every value is checked before scoring, because the
+    model silently treats an unrecognised category (for example a wrong-case ``CONTRACT``
+    value) as "none of the above" and gives a confident but wrong score. All problems are
+    reported together so the file can be fixed in one pass.
 
     Raises:
-        ValueError: On missing columns, an empty file, or duplicate customer IDs.
+        ValueError: On an empty file, missing columns, duplicate customer IDs, or invalid
+            values (blank/non-numeric/negative/implausible numbers, ``SeniorCitizen`` not
+            0/1, or categories outside the training categories).
     """
     if raw.empty:
         raise ValueError("The file has no rows")
@@ -287,13 +378,44 @@ def prepare_batch(raw: pd.DataFrame) -> pd.DataFrame:
     raw[ID_COL] = raw[ID_COL].astype(str)
     if raw[ID_COL].duplicated().any():
         raise ValueError(f"Duplicate {ID_COL} values in the file")
-    cleaned = clean(raw[[ID_COL, *FEATURE_COLUMNS]])
-    return cleaned
+    raw = raw[[ID_COL, *FEATURE_COLUMNS]]
+    problems = _batch_problems(raw)
+    if problems:
+        raise ValueError(
+            f"Found {len(problems)} problem(s) in the file:\n- " + "\n- ".join(problems)
+        )
+    raw = raw.assign(
+        SeniorCitizen=raw["SeniorCitizen"].astype("string").str.strip().str.lower().map(SENIOR_TEXT)
+    )
+    return clean(raw)
 
 
 def read_csv_upload(data: bytes) -> pd.DataFrame:
-    """Parse uploaded CSV bytes, keeping IDs and TotalCharges as text like the raw file."""
-    return pd.read_csv(io.BytesIO(data), dtype={ID_COL: str, "TotalCharges": str})
+    """Parse uploaded CSV bytes, keeping IDs and TotalCharges as text like the raw file.
+
+    Raises:
+        ValueError: With a plain-language message if the file is empty, is not UTF-8 text,
+            cannot be parsed, or looks semicolon- or tab-separated.
+    """
+    if not data.strip():
+        raise ValueError("The file is empty")
+    try:
+        df = pd.read_csv(
+            io.BytesIO(data), dtype={ID_COL: str, "TotalCharges": str}, encoding="utf-8-sig"
+        )
+    except UnicodeDecodeError:
+        raise ValueError(
+            "The file is not a UTF-8 text CSV. Export it as CSV (not a spreadsheet file)."
+        ) from None
+    except pd.errors.EmptyDataError:
+        raise ValueError("The file is empty") from None
+    except pd.errors.ParserError as err:
+        raise ValueError(f"The file could not be parsed as a CSV: {err}") from err
+    if df.shape[1] == 1 and any(sep in str(df.columns[0]) for sep in (";", "\t", "|")):
+        raise ValueError(
+            "The file looks semicolon-, tab- or pipe-separated; save it as a comma-separated CSV"
+        )
+    return df
 
 
 def score(model: CalibratedModel, customers: pd.DataFrame) -> pd.DataFrame:
