@@ -344,3 +344,15 @@ def test_read_csv_upload_handles_bom_and_crlf() -> None:
     out = helpers.read_csv_upload(data)
     assert list(out.columns) == list(raw.columns) and len(out) == 3
     assert helpers.prepare_batch(out).shape[0] == 3
+
+
+# --- dashboard server config --------------------------------------------------
+
+
+def test_dashboard_config_is_local_only_with_an_upload_cap() -> None:
+    import tomllib
+
+    cfg = tomllib.loads((config.PROJECT_ROOT / ".streamlit" / "config.toml").read_text())
+    assert cfg["server"]["address"] == "localhost"
+    # Streamlit's default is 200 MB; scoring runs at roughly 2,000 customers per second.
+    assert 1 <= cfg["server"]["maxUploadSize"] <= 50

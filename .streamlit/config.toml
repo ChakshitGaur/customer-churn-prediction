@@ -3,6 +3,10 @@
 address = "localhost"
 port = 8501
 headless = true
+# Uploads are capped at 10 MB (the whole 7,043-customer dataset is ~1 MB; 10 MB is ~70,000
+# customers, about 35 s to score). Streamlit's default is 200 MB, which would let one huge
+# file tie up the dashboard or exhaust memory.
+maxUploadSize = 10
 
 [browser]
 gatherUsageStats = false
