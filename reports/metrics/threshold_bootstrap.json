@@ -1,23 +1,23 @@
 {
   "n_boot": 1000,
   "sample_size": 1057,
-  "full_data_best_threshold": 0.33,
-  "full_data_best_profit_per_1000": 12103.240895422652,
+  "full_data_best_threshold": 0.32,
+  "full_data_best_profit_per_1000": 11994.654193117274,
   "threshold": {
-    "mean": 0.33857,
-    "std": 0.06454472186880288,
-    "p05": 0.22950000000000004,
+    "mean": 0.3515400000000001,
+    "std": 0.06844350161200778,
+    "p05": 0.25,
     "median": 0.33,
-    "p95": 0.46
+    "p95": 0.47
   },
   "regret_per_1000": {
-    "mean": 319.2031406615429,
-    "p95": 860.340795188773,
-    "share_within_500": 0.662,
-    "share_within_1000": 0.978
+    "mean": 258.3361176077517,
+    "p95": 701.6371533578349,
+    "share_within_500": 0.852,
+    "share_within_1000": 0.988
   },
   "within_95pct_of_best": {
-    "low": 0.25,
-    "high": 0.44
+    "low": 0.26,
+    "high": 0.47
   }
 }

@@ -3,9 +3,9 @@
 Predict which telecom customers will churn, explain **why** with SHAP, and turn predictions
 into a ranked, costed retention plan.
 
-**Headline:** contacting the 33% of customers the model flags reaches **73% of churners**.
-Under placeholder costs, that earns **+12,400 per 1,000 customers**, while spending the same
-budget at random **loses 3,400**.
+**Headline:** contacting the 32% of customers the model flags reaches **72% of churners**.
+Under placeholder costs, that earns **+12,300 per 1,000 customers**, while spending the same
+budget at random **loses 3,300**.
 
 > **Caveat: snapshot data.** In this dataset, `tenure` and `TotalCharges` for churned customers are
 > measured when they left, while active customers are measured today. The model can partly learn
@@ -27,21 +27,21 @@ offers cost money, so they should go to customers who are both **likely to leave
 | Metric | **Final model (XGBoost)** | Logistic regression baseline |
 |---|---|---|
 | PR-AUC | **0.671** | 0.641 |
-| ROC-AUC | **0.856** | 0.849 |
+| ROC-AUC | **0.855** | 0.849 |
 | Lift in top 10% | **2.92×** | 2.78× |
 | Recall in top 10% | **29.3%** | 27.9% |
 
-- The PR-AUC gain is +0.030, with a paired bootstrap 95% CI of **[+0.003, +0.055]**.
-- **Robustness:** 5×5 repeated CV on train + validation gives a smaller gain of **+0.010** (95% CI [−0.009, +0.029]), so the edge over logistic regression is small and not statistically firm. Run `python -m src.models.repeated_cv`.
-- **Calibrated:** predicted churn in each risk tier matches actual churn (High 58.3% vs 58.5%, Medium 31.7% vs 29.9%, Low 9.1% vs 7.7%). Calibration error fell from 0.153 to 0.027.
+- The PR-AUC gain is +0.030, with a paired bootstrap 95% CI of **[+0.007, +0.052]**.
+- **Robustness:** 5×5 repeated CV on train + validation gives a smaller gain of **+0.011** (95% CI [−0.006, +0.027]), so the edge over logistic regression is small and not statistically firm. Run `python -m src.models.repeated_cv`.
+- **Calibrated:** predicted churn in each risk tier is close to actual churn (High 58.3% vs 58.6%, Medium 33.3% vs 27.0% on only 111 customers, Low 8.9% vs 8.1%). Calibration error fell from 0.149 to 0.033.
 
 | Targeting strategy (1,057 test customers) | Profit |
 |---|---|
-| **Model targeting (349 contacts)** | **+13,150** |
-| Random targeting (same 349 contacts) | −3,582 |
+| **Model targeting (343 contacts)** | **+13,000** |
+| Random targeting (same 343 contacts) | −3,521 |
 | Contact everyone | −10,850 |
 
-**Top churn drivers (SHAP):** contract type (34%), tenure (12%), internet type (10%), monthly charges, and no security or tech-support add-ons.
+**Top churn drivers (SHAP):** contract type (27%), tenure (18%), internet type (13%), then missing security and tech-support add-ons (6% each), payment method (5%) and monthly charges (5%).
 
 <p>
   <img src="reports/figures/eval_gain_lift.png" width="720" alt="Cumulative gain and lift by decile">
@@ -98,7 +98,7 @@ How the model would be watched in production (drift alerts, calibration checks, 
 **Findings I didn't expect:**
 - Untuned, the logistic regression baseline beat every tree model.
 - Engineered features gave no accuracy gain, so the final model uses raw features.
-- An interpretable Explainable Boosting Machine matches XGBoost in repeated CV (PR-AUC 0.668 vs 0.666), with exact per-feature explanations. See section 2 of the report; `python -m src.models.ebm`.
+- An interpretable Explainable Boosting Machine matches XGBoost in repeated CV (PR-AUC 0.668 vs 0.667), with exact per-feature explanations. See section 2 of the report; `python -m src.models.ebm`.
 - A column-order bug in `set_output` would have mislabelled SHAP explanations; it's fixed and covered by a regression test.
 
 ## How to run
@@ -168,7 +168,7 @@ Python 3.14 · pandas · scikit-learn · XGBoost · LightGBM · SHAP · Streamli
 
 ## Resume bullets
 - Built an end-to-end churn prediction pipeline (Python, scikit-learn, XGBoost) on 7,043 telecom customers. It reaches PR-AUC 0.671 and 2.9× lift in the top risk decile on a held-out test set, ahead of a logistic regression baseline (+0.03 PR-AUC). Repeated cross-validation puts that gain nearer +0.01, within noise, so the main value comes from targeting, not the algorithm.
-- Designed a cost-based targeting strategy with calibrated probabilities (calibration error 0.153 → 0.027). It reaches 73% of churners by contacting 33% of customers, earning about 12.4K per 1,000 customers vs a loss under random targeting.
+- Designed a cost-based targeting strategy with calibrated probabilities (calibration error 0.149 → 0.033). It reaches 72% of churners by contacting 32% of customers, earning about 12.3K per 1,000 customers vs a loss under random targeting.
 - Explained predictions with SHAP, turning each customer's top 3 churn drivers into tiered retention actions. Identified contract type, early tenure and fiber service as the main levers.
 - Shipped a Streamlit dashboard for single and batch scoring with SHAP explanations and PSI drift checks, plus a production monitoring plan with alert thresholds and retraining triggers.
 - Kept evaluation leakage-safe: train-only preprocessing inside CV, validation-only model and threshold selection, a single test evaluation, and 80+ pytest tests, including a regression test for a feature-labelling bug.

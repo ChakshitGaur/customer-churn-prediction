@@ -2,47 +2,47 @@
   "calibration": {
     "method": "sigmoid (Platt), fit on validation",
     "test_before": {
-      "mean_predicted": 0.4182315170764923,
+      "mean_predicted": 0.4134926497936249,
       "observed_rate": 0.26490066225165565,
-      "ece": 0.15342328820247056
+      "ece": 0.1486429726315021
     },
     "test_after": {
-      "mean_predicted": 0.2739995298306801,
+      "mean_predicted": 0.27482123622332144,
       "observed_rate": 0.26490066225165565,
-      "ece": 0.027132592930803855
+      "ece": 0.03293272718607593
     },
-    "brier_before": 0.15903319418430328,
-    "brier_after": 0.13299705619853044
+    "brier_before": 0.16137349605560303,
+    "brier_after": 0.13365004970615646
   },
-  "threshold_raw": 0.58,
-  "threshold_calibrated": 0.3765731679062411,
+  "threshold_raw": 0.62,
+  "threshold_calibrated": 0.40033269000261335,
   "break_even_probability": 0.3333333333333333,
   "medium_cutoff": 0.26536822884966527,
   "test_customers": 1057,
   "tiers": {
     "High": {
-      "customers": 349,
-      "mean_probability": 0.5831,
-      "actual_churn_rate": 0.5845,
-      "churners": 204,
-      "share": 0.3302,
-      "share_of_churners": 0.7286
+      "customers": 343,
+      "mean_probability": 0.5826,
+      "actual_churn_rate": 0.586,
+      "churners": 201,
+      "share": 0.3245,
+      "share_of_churners": 0.7179
     },
     "Medium": {
-      "customers": 97,
-      "mean_probability": 0.3165,
-      "actual_churn_rate": 0.299,
-      "churners": 29,
-      "share": 0.0918,
-      "share_of_churners": 0.1036
+      "customers": 111,
+      "mean_probability": 0.3326,
+      "actual_churn_rate": 0.2703,
+      "churners": 30,
+      "share": 0.105,
+      "share_of_churners": 0.1071
     },
     "Low": {
-      "customers": 611,
-      "mean_probability": 0.0907,
-      "actual_churn_rate": 0.0769,
-      "churners": 47,
-      "share": 0.5781,
-      "share_of_churners": 0.1679
+      "customers": 603,
+      "mean_probability": 0.0891,
+      "actual_churn_rate": 0.0813,
+      "churners": 49,
+      "share": 0.5705,
+      "share_of_churners": 0.175
     }
   },
   "strategies": [
@@ -66,44 +66,47 @@
     },
     {
       "strategy": "Random (same number as model)",
-      "contacts": 349,
-      "churners_reached": 92.5,
-      "customers_saved": 27.7,
-      "cost": 17450.0,
-      "profit": -3582.0,
-      "profit_per_1000_customers": -3389.0
+      "contacts": 343,
+      "churners_reached": 90.9,
+      "customers_saved": 27.3,
+      "cost": 17150.0,
+      "profit": -3521.0,
+      "profit_per_1000_customers": -3331.0
     },
     {
       "strategy": "Model targeting",
-      "contacts": 349,
-      "churners_reached": 204.0,
-      "customers_saved": 61.2,
-      "cost": 17450.0,
-      "profit": 13150.0,
-      "profit_per_1000_customers": 12441.0
+      "contacts": 343,
+      "churners_reached": 201.0,
+      "customers_saved": 60.3,
+      "cost": 17150.0,
+      "profit": 13000.0,
+      "profit_per_1000_customers": 12299.0
     }
   ],
   "contacted_actions": {
     "primary": {
-      "Offer a discount to move to a 1- or 2-year contract": 348,
-      "Review the plan and right-size it to the customer's usage": 1
+      "Offer a discount to move to a 1- or 2-year contract": 232,
+      "Enroll in the first-90-days onboarding and check-in program": 110,
+      "Run a fiber service-quality check and price review": 1
     },
     "secondary": {
-      "Enroll in the first-90-days onboarding and check-in program": 155,
-      "Run a fiber service-quality check and price review": 150,
-      "Review the plan and right-size it to the customer's usage": 29,
-      "Give a one-time credit for switching to auto-pay": 11,
-      "Offer a free 3-month trial of the security + tech support bundle": 4
+      "Run a fiber service-quality check and price review": 163,
+      "Offer a discount to move to a 1- or 2-year contract": 109,
+      "Enroll in the first-90-days onboarding and check-in program": 59,
+      "Give a one-time credit for switching to auto-pay": 8,
+      "Review the plan and right-size it to the customer's usage": 2,
+      "Offer a free 3-month trial of the security + tech support bundle": 2
     }
   },
   "contacted_reason_features": {
-    "Contract": 348,
-    "InternetService": 249,
-    "tenure": 193,
-    "MonthlyCharges": 61,
-    "PaymentMethod": 61,
-    "TotalCharges": 60,
-    "OnlineSecurity": 54,
-    "TechSupport": 21
+    "Contract": 341,
+    "InternetService": 280,
+    "tenure": 205,
+    "PaymentMethod": 90,
+    "TechSupport": 45,
+    "MonthlyCharges": 37,
+    "OnlineSecurity": 29,
+    "StreamingTV": 1,
+    "PaperlessBilling": 1
   }
 }
