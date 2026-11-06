@@ -56,7 +56,7 @@ LIBRARIES: tuple[str, ...] = (
 LIMITATIONS: tuple[str, ...] = (
     "Snapshot data: tenure and TotalCharges are measured at exit for churned customers, so "
     "reported performance is likely an upper estimate (reports/final_report.md, section 6).",
-    "The gain over the logistic regression baseline is small: repeated CV puts it near +0.010 "
+    "The gain over the logistic regression baseline is small: repeated CV puts it near +0.011 "
     "PR-AUC with an interval that includes zero.",
     "Offer cost, customer value and success rate are placeholders in src/config.py; the "
     "threshold and profit figures depend on them.",

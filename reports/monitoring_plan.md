@@ -23,7 +23,7 @@ These checks need no outcome labels, so they run before anyone is contacted.
 | **Input drift** | PSI of each monitored feature vs. the training split (`src.models.monitor.drift_report`): Contract, tenure, MonthlyCharges, InternetService, PaymentMethod, TechSupport, OnlineSecurity | PSI ≥ 0.10 **investigate**; PSI ≥ 0.25 **hold the campaign** until explained |
 | **Unseen categories** | Values not seen in training (e.g. a new payment method). These are encoded as all-zero and scored silently | Any new category → **investigate** |
 | **Score distribution** | PSI of this month's calibrated scores vs. the test-set scores; mean predicted churn vs. the 26.5% historical rate | PSI ≥ 0.10, or mean predicted churn moves more than 5 points |
-| **Tier sizes** | Share of customers in High / Medium / Low vs. the test set (33% / 9% / 58%) | High tier changes by more than 10 points |
+| **Tier sizes** | Share of customers in High / Medium / Low vs. the test set (32% / 11% / 57%) | High tier changes by more than 10 points |
 
 PSI reading (also in `src/models/monitor.py`): **< 0.10** stable · **0.10–0.25** moderate shift · **≥ 0.25** major shift.
 
@@ -37,9 +37,9 @@ Join last month's scores to who actually churned. **Exclude customers who receiv
 |---|---|---|
 | **PR-AUC** (primary) | 0.671 | Below **0.62** for 2 months in a row (about the baseline model's level) |
 | **Top-10% lift** | 2.92× | Below **2.3×** |
-| **Calibration error (ECE)** | 0.027 | Above **0.06** |
-| **Mean predicted vs. actual churn** | 27.4% vs 26.5% | Gap above **5 points** |
-| **Actual churn by tier** | High 58.5%, Medium 29.9%, Low 7.7% | Tiers stop being ordered, or High drops below 45% |
+| **Calibration error (ECE)** | 0.033 | Above **0.06** |
+| **Mean predicted vs. actual churn** | 27.5% vs 26.5% | Gap above **5 points** |
+| **Actual churn by tier** | High 58.6%, Medium 27.0%, Low 8.1% | Tiers stop being ordered, or High drops below 45% |
 | **Segment PR-AUC** | Contract, tenure band, internet type (`performance_by_segment`) | Any large segment drops more than 0.08 below its test value |
 
 Monthly samples are small (about 1,000 customers), so judge trends over **2–3 months**, not single readings. Report bootstrap intervals where it matters.

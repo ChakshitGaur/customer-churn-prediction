@@ -16,55 +16,31 @@
       "roc_auc": 0.8291769086840076,
       "recall_top10": 0.2704626334519573,
       "lift_top10": 2.696971731686027,
-      "brier": 0.16975203719855475,
-      "base_rate": 0.26584673604541154
-    }
-  },
-  "random_forest": {
-    "model": "random_forest",
-    "best_params": {
-      "model__max_depth": 12,
-      "model__max_features": 0.3,
-      "model__min_samples_leaf": 30,
-      "model__n_estimators": 601,
-      "prep": "raw"
-    },
-    "cv_pr_auc_mean": 0.6693798446386074,
-    "cv_pr_auc_std": 0.024258559781888935,
-    "cv_roc_auc_mean": 0.8483080217437975,
-    "cv_recall_top10_mean": 0.28898833026234977,
-    "val": {
-      "pr_auc": 0.637608135410154,
-      "roc_auc": 0.8342535862347287,
-      "recall_top10": 0.2846975088967972,
-      "lift_top10": 2.8389176123010813,
-      "brier": 0.1614118460813283,
+      "brier": 0.16975203719855478,
       "base_rate": 0.26584673604541154
     }
   },
   "xgboost": {
     "model": "xgboost",
     "best_params": {
-      "model__colsample_bytree": 0.764526911140863,
-      "model__gamma": 0.34104824737458306,
-      "model__learning_rate": 0.006356039080497238,
-      "model__max_depth": 5,
+      "model__gamma": 1.9434241907782075,
+      "model__learning_rate": 0.11454625063172955,
+      "model__max_depth": 2,
       "model__min_child_weight": 14,
-      "model__n_estimators": 341,
-      "model__reg_lambda": 1.0970529245749174,
-      "model__subsample": 0.6063865008880857,
+      "model__n_estimators": 492,
+      "model__reg_lambda": 8.280524042035706,
       "prep": "raw"
     },
-    "cv_pr_auc_mean": 0.6717489169327544,
-    "cv_pr_auc_std": 0.023947902558736398,
-    "cv_roc_auc_mean": 0.8489137316024251,
-    "cv_recall_top10_mean": 0.2905267468047147,
+    "cv_pr_auc_mean": 0.6714930547976866,
+    "cv_pr_auc_std": 0.023554385303156684,
+    "cv_roc_auc_mean": 0.8476865999826744,
+    "cv_recall_top10_mean": 0.2920593138545231,
     "val": {
-      "pr_auc": 0.6409558391261387,
-      "roc_auc": 0.835810525736508,
-      "recall_top10": 0.28113879003558717,
-      "lift_top10": 2.8034311421473173,
-      "brier": 0.16303801536560059,
+      "pr_auc": 0.6380636234699543,
+      "roc_auc": 0.8366016069266611,
+      "recall_top10": 0.2775800711743772,
+      "lift_top10": 2.767944671993554,
+      "brier": 0.16452814638614655,
       "base_rate": 0.26584673604541154
     }
   }
