@@ -1,0 +1,61 @@
+name: Real-data check
+
+# CI normally runs the pipeline only on synthetic data (the raw dataset is not in the repo).
+# This job runs the whole pipeline on the real, checksum-verified dataset and then checks the
+# outputs (src/models/health.py), so a regression that only shows on real data - a package
+# update, a platform difference, a change at the data source - is caught within a week.
+#
+# Runs every Monday, on demand (Actions tab -> Run workflow), and on pull requests that change
+# this file or the health check. Note: GitHub pauses scheduled workflows in a repository with
+# no activity for 60 days; run it once by hand to wake it up.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/real-data.yml"
+      - "src/models/health.py"
+
+concurrency:
+  group: real-data-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline-on-real-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # requirements.txt is pinned on Python 3.14.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      # Fails if the downloaded file does not match the expected SHA-256.
+      - name: Download the dataset
+        run: python -m src.data.download
+
+      - name: Run the pipeline
+        run: python -m src.pipeline
+
+      - name: Check the outputs
+        run: python -m src.models.health
+
+      - name: Keep the metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-metrics
+          path: |
+            reports/metrics
+            models/model_card.json
+          retention-days: 30

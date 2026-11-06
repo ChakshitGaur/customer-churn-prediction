@@ -135,6 +135,7 @@ Without activating, call the venv's interpreter directly: `.venv/bin/python` (Li
 
 - **Pre-commit hook:** `python -m pip install pre-commit`, then `pre-commit install` once. From then on every commit runs `ruff` and `black --check` on the staged files in `app/`, `src/` and `tests/`, the same checks CI runs. Run it on everything with `pre-commit run --all-files`. The tool versions in `.pre-commit-config.yaml` must match `requirements.txt`.
 - **Dependency updates:** Dependabot opens a weekly PR for the pinned Python packages (minor and patch bumps grouped into one) and for the GitHub Actions in CI. CI runs on each one, so a bad update shows up as a red check.
+- **Real-data check:** CI runs the pipeline only on synthetic data. A weekly job (`.github/workflows/real-data.yml`, also runnable by hand from the Actions tab) downloads the checksum-verified dataset, runs the full pipeline and checks the outputs with `python -m src.models.health`: the model beats the baseline, test PR-AUC is within 0.03 of 0.671, calibration is sound, the data hash matches and the risk list is complete. Run the same check locally after `python -m src.pipeline`.
 - **Merging:** `main` should require the `lint-and-test` check to pass before a PR can merge (a repository setting, not a file).
 
 ## Project structure
