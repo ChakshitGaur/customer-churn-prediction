@@ -8,10 +8,20 @@ name: Real-data check
 # Runs every Monday, on demand (Actions tab -> Run workflow), and on pull requests that change
 # this file or the health check. Note: GitHub pauses scheduled workflows in a repository with
 # no activity for 60 days; run it once by hand to wake it up.
+#
+# Alerting: when a scheduled or manual run fails, the job opens a GitHub issue (or comments on
+# the one that is already open), which notifies everyone watching the repository. GitHub's own
+# failed-run email goes only to whoever last edited the cron line, which may not be you. When a
+# later run passes, the issue is closed with a comment. Pull request runs never open issues.
 on:
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: "Fail on purpose, to test the issue alert (the issue is closed by the next passing run)"
+        type: boolean
+        default: false
   pull_request:
     paths:
       - ".github/workflows/real-data.yml"
@@ -24,10 +34,16 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ISSUE_TITLE: "Weekly real-data check failed"
+
 jobs:
   pipeline-on-real-data:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v7
 
@@ -48,7 +64,14 @@ jobs:
         run: python -m src.pipeline
 
       - name: Check the outputs
-        run: python -m src.models.health
+        shell: bash
+        run: python -m src.models.health 2>&1 | tee health.log
+
+      - name: Simulate a failure (test of the alerting)
+        if: inputs.simulate_failure
+        run: |
+          echo "Failing on purpose: simulate_failure was set." | tee -a health.log
+          exit 1
 
       - name: Keep the metrics
         if: always()
@@ -59,3 +82,44 @@ jobs:
             reports/metrics
             models/model_card.json
           retention-days: 30
+
+      - name: Open or update an issue on failure
+        if: failure() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT: ${{ github.event_name }}
+          SIMULATED: ${{ inputs.simulate_failure }}
+        run: |
+          {
+            echo "The real-data check failed ($EVENT run)."
+            echo
+            if [ "$SIMULATED" = "true" ]; then
+              echo "**This was a deliberate test of the alerting, not a real failure.** It closes itself on the next passing run."
+              echo
+            fi
+            echo "Run: $RUN_URL"
+            echo
+            echo "Last lines of the health check output (empty if the failure was earlier, in the install, download or pipeline step; see the run log):"
+            echo
+            echo '```'
+            tail -n 30 health.log 2>/dev/null || true
+            echo '```'
+          } > issue_body.md
+          number=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file issue_body.md
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file issue_body.md
+          fi
+
+      - name: Close the issue after a passing run
+        if: success() && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue close "$number" --comment "The real-data check passed again: $RUN_URL"
+          fi
