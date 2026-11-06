@@ -60,6 +60,14 @@ OFFER_SUCCESS_RATE: float = 0.30  # share of contacted would-be churners who the
 MAX_TENURE_MONTHS: int = 120
 MAX_MONTHLY_CHARGES: float = 300.0
 MAX_TOTAL_CHARGES: float = 36000.0
+# Limits for src/models/health.py, which checks a finished pipeline run. The reference is the
+# test PR-AUC from the committed run (0.671); platforms differ by ~0.001, so the band is wide
+# enough to avoid false alarms and narrow enough to catch a real regression.
+HEALTH_REFERENCE_TEST_PR_AUC: float = 0.671
+HEALTH_TEST_PR_AUC_TOLERANCE: float = 0.03
+HEALTH_MIN_TEST_ROC_AUC: float = 0.80
+HEALTH_MAX_ECE: float = 0.06  # test-set calibration error after calibration (run: ~0.03)
+HEALTH_MAX_HIGH_TIER_GAP: float = 0.08  # |predicted - actual churn| in the High tier
 MODEL_MAX_AGE_DAYS: int = 90  # dashboard shows a note when the model is older than this
 THRESHOLD_BOOTSTRAP_N: int = 1000  # resamples in src/models/threshold_bootstrap.py
 
