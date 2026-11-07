@@ -90,4 +90,5 @@ def drift_report(
         if col in reference.columns and col in current.columns:
             value = psi(reference[col], current[col])
             rows.append({"feature": col, "psi": round(value, 4), "status": psi_status(value)})
-    return pd.DataFrame(rows).sort_values("psi", ascending=False).reset_index(drop=True)
+    report = pd.DataFrame(rows, columns=["feature", "psi", "status"])
+    return report.sort_values("psi", ascending=False).reset_index(drop=True)

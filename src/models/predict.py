@@ -112,6 +112,8 @@ def build_risk_list(model: CalibratedModel, customers: pd.DataFrame) -> pd.DataF
         ``churn_probability``, ``risk_tier``, ``contact``, ``reason_1..3``,
         ``primary_action``, ``secondary_action``, and key account attributes.
     """
+    if customers.empty:
+        raise ValueError("No customers to score")
     X = customers.drop(columns=[c for c in ("Churn",) if c in customers.columns])
     X = X.drop(columns=[ID_COL])
     prob = model.predict_proba(X)
