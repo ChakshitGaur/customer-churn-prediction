@@ -44,8 +44,9 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         Cleaned DataFrame; the input is not modified.
 
     Raises:
-        ValueError: If blank ``TotalCharges`` appear for customers with tenure > 0,
-            which would mean the 0-fill rule no longer holds.
+        ValueError: If blank ``TotalCharges`` appear for customers with tenure > 0 or missing
+            tenure (the 0-fill rule no longer holds), or if ``Churn`` has missing or
+            unrecognised values.
     """
     out = df.copy()
 
@@ -57,7 +58,10 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     blank = total.isna()
     if pd.api.types.is_string_dtype(total) or total.dtype == object:
         blank |= total.astype("string").str.strip().eq("").fillna(False)
-    if (out.loc[blank, "tenure"].astype(float) > 0).any():
+    tenure = out.loc[blank, "tenure"].astype(float)
+    if tenure.isna().any():
+        raise ValueError("Blank TotalCharges found for customers with missing tenure")
+    if (tenure > 0).any():
         raise ValueError("Blank TotalCharges found for customers with tenure > 0")
     out["TotalCharges"] = pd.to_numeric(total.where(~blank, 0)).astype(float)
     logger.info("TotalCharges: filled %d blank values (tenure 0) with 0.0", int(blank.sum()))
@@ -66,6 +70,8 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         target = out[TARGET_COL]
         if not pd.api.types.is_numeric_dtype(target):
             target = target.map({"Yes": 1, "No": 0})
+        if target.isna().any() or not target.isin([0, 1]).all():
+            raise ValueError(f"{TARGET_COL} must be 'Yes'/'No' (or 0/1) with no missing values")
         out[TARGET_COL] = target.astype(int)
 
     leaked = [c for c in LEAKAGE_COLS if c in out.columns]

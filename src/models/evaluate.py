@@ -108,7 +108,9 @@ def best_profit_threshold(
     Returns:
         ``(threshold, profit)``.
     """
-    grid = np.round(np.arange(0.01, 1.0, 0.01), 2) if grid is None else grid
+    grid = np.round(np.arange(0.01, 1.0, 0.01), 2) if grid is None else np.asarray(grid)
+    if grid.size == 0:
+        raise ValueError("grid must contain at least one threshold")
     profits = [expected_profit(y_true, y_score, t) for t in grid]
     best = int(np.argmax(profits))
     return float(grid[best]), float(profits[best])

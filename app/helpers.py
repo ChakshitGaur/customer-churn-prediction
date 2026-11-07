@@ -268,7 +268,10 @@ def make_customer(inputs: dict[str, Any], customer_id: str = "NEW-CUSTOMER") -> 
     if missing:
         raise ValueError(f"Missing fields: {missing}")
     for col in ("tenure", "MonthlyCharges", "TotalCharges"):
-        if float(row[col]) < 0:
+        value = float(row[col])
+        if not np.isfinite(value):
+            raise ValueError(f"{col} must be a finite number")
+        if value < 0:
             raise ValueError(f"{col} cannot be negative")
     return pd.DataFrame([{ID_COL: customer_id, **{c: row[c] for c in FEATURE_COLUMNS}}])
 
@@ -375,6 +378,9 @@ def prepare_batch(raw: pd.DataFrame) -> pd.DataFrame:
     if missing:
         raise ValueError(f"Missing columns: {missing}")
     raw = raw.copy()
+    blank_id = raw[ID_COL].isna() | raw[ID_COL].astype("string").str.strip().eq("")
+    if blank_id.any():
+        raise ValueError(f"{int(blank_id.sum())} row(s) have a blank {ID_COL}")
     raw[ID_COL] = raw[ID_COL].astype(str)
     if raw[ID_COL].duplicated().any():
         raise ValueError(f"Duplicate {ID_COL} values in the file")
@@ -429,6 +435,9 @@ def what_if(model: CalibratedModel, customer: pd.DataFrame, changes: dict[str, A
     This is the model's answer, not a causal estimate: customers who choose long
     contracts may differ in ways the data doesn't capture.
     """
+    unknown = [c for c in changes if c not in customer.columns]
+    if unknown:
+        raise ValueError(f"Unknown customer attribute(s): {unknown}")
     changed = customer.assign(**changes)
     X = changed.drop(columns=[ID_COL, TARGET_COL], errors="ignore")
     return float(model.predict_proba(X)[0])
