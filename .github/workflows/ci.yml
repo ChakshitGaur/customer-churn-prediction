@@ -35,5 +35,26 @@ jobs:
         run: python -m black --check app src tests
 
       # Raw data is not in the repo, so the one test that needs it skips itself.
+      # The coverage floor is a tripwire against untested code, not a goal: raise it as tests grow.
+      - name: Tests
+        run: python -m pytest --cov=src --cov=app --cov-fail-under=74
+
+  # requirements.txt is pinned on 3.14, but pyproject.toml allows 3.11+. This job runs the same
+  # tests on 3.13 so code that only works on one version is caught. It is a separate job (not a
+  # matrix) so the required `lint-and-test` check keeps its name.
+  python-3-13:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
       - name: Tests
         run: python -m pytest

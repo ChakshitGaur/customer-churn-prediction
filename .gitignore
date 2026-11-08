@@ -37,3 +37,5 @@ Thumbs.db
 
 # Customer-level outputs (scored customer lists)
 reports/output/
+.coverage
+htmlcov/

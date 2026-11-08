@@ -136,6 +136,8 @@ Without activating, call the venv's interpreter directly: `.venv/bin/python` (Li
 - **Pre-commit hook:** `python -m pip install pre-commit`, then `pre-commit install` once. From then on every commit runs `ruff` and `black --check` on the staged files in `app/`, `src/` and `tests/`, the same checks CI runs. Run it on everything with `pre-commit run --all-files`. The tool versions in `.pre-commit-config.yaml` must match `requirements.txt`.
 - **Dependency updates:** Dependabot opens a weekly PR for the pinned Python packages (minor and patch bumps grouped into one) and for the GitHub Actions in CI. CI runs on each one, so a bad update shows up as a red check.
 - **Real-data check:** CI runs the pipeline only on synthetic data. A weekly job (`.github/workflows/real-data.yml`, also runnable by hand from the Actions tab) downloads the checksum-verified dataset, runs the full pipeline and checks the outputs with `python -m src.models.health`: the model beats the baseline, test PR-AUC is within 0.03 of 0.671, calibration is sound, the data hash matches and the risk list is complete. Run the same check locally after `python -m src.pipeline`. If the weekly run fails, the job opens a GitHub issue (or comments on the open one) so you are notified as a watcher of the repository; the next passing run closes it. To test the alert, run the workflow by hand with "Fail on purpose" ticked.
+- **Coverage and Python versions:** CI runs the tests with a coverage floor (`--cov-fail-under=74`, currently about 76%) so new code cannot land untested; raise the floor as tests grow. A second job, `python-3-13`, runs the suite on Python 3.13 (requirements are pinned on 3.14, `pyproject.toml` allows 3.11+). The dashboard itself is smoke-tested in `tests/test_dashboard.py` with Streamlit's `AppTest` and a toy model, so no data or trained model is needed.
+- **Docker (optional):** `docker build -t churn-dashboard .` then `docker run --rm -p 127.0.0.1:8501:8501 -v churn-artifacts:/app/models -v churn-data:/app/data churn-dashboard`. The first start downloads the data and trains the model (about 2 minutes); the volumes keep them for later runs.
 - **Merging:** `main` should require the `lint-and-test` check to pass before a PR can merge (a repository setting, not a file).
 
 ## Project structure
@@ -160,7 +162,9 @@ churn-project/
 │   ├── metrics/                   # CV, tuning, test, segment, SHAP, business tables
 │   ├── final_report.md            # findings and recommendations
 │   └── monitoring_plan.md         # production monitoring and retraining triggers
-└── tests/                         # pytest suite
+├── tests/                         # pytest suite (incl. dashboard smoke tests)
+├── Dockerfile                     # optional container for the dashboard
+└── LICENSE                        # MIT
 ```
 
 ## Tech stack

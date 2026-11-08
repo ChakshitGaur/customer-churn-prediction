@@ -1,0 +1,13 @@
+.git
+.venv
+.github
+**/__pycache__
+.pytest_cache
+.ruff_cache
+.coverage
+data/raw/*
+data/interim/*
+data/processed/*
+models/*
+!**/.gitkeep
+reports/output
