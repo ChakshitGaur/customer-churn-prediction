@@ -381,3 +381,60 @@ def test_build_risk_list_requires_every_model_column() -> None:
     c = X.assign(**{config.ID_COL: [f"c{i}" for i in range(len(X))]})
     with pytest.raises(ValueError, match="missing"):
         build_risk_list(model, c.drop(columns=["Contract"]).iloc[:3])
+
+
+# --- per-group thresholds ---------------------------------------------------------
+
+
+def _scored_groups(n: int = 6000, seed: int = 0, shift_b: float = 0.0):
+    """Two groups with calibrated scores; group B can have its true risk shifted off its score."""
+    rng = np.random.default_rng(seed)
+    groups = pd.Series(rng.choice(["A", "B"], n))
+    s = rng.uniform(0.02, 0.98, n)
+    true_p = np.clip(s + np.where(groups == "B", shift_b, 0.0), 0.0, 1.0)
+    return groups, (rng.random(n) < true_p).astype(int), s
+
+
+def test_best_threshold_matches_break_even_and_handles_empty_input() -> None:
+    from src.models.segment_thresholds import best_threshold
+
+    _, y, s = _scored_groups(20000)
+    econ = {"cost": 50.0, "value": 500.0, "rate": 0.3}
+    assert best_threshold(y, s, **econ) == pytest.approx(50 / (500 * 0.3), abs=0.06)
+    assert 0 < best_threshold(np.array([]), np.array([]), **econ) < 1
+
+
+def test_group_thresholds_use_fallback_for_tiny_groups() -> None:
+    from src.models.segment_thresholds import MIN_GROUP_SIZE, group_thresholds
+
+    groups, y, s = _scored_groups(400)
+    groups.iloc[: MIN_GROUP_SIZE - 1] = "tiny"
+    t = group_thresholds(groups, y, s, 0.77, cost=50.0, value=500.0, rate=0.3)
+    assert (t[: MIN_GROUP_SIZE - 1] == 0.77).all()
+
+
+def test_per_group_thresholds_do_not_pay_when_scores_are_calibrated() -> None:
+    from src.models.segment_thresholds import compare_thresholds
+
+    groups, y, s = _scored_groups(4000)
+    r = compare_thresholds(groups, y, s, n_repeats=60)
+    assert r["in_sample_gain"] >= 0  # fitting on the same rows can only look better
+    assert r["oos_gain_mean"] <= 50  # ...but on unseen rows there is nothing real to gain
+    assert r["theory_threshold"] == pytest.approx(1 / 3)
+
+
+def test_per_group_thresholds_pay_when_one_group_is_miscalibrated() -> None:
+    from src.models.segment_thresholds import compare_thresholds
+
+    groups, y, s = _scored_groups(8000, shift_b=0.35)  # B churns far more than its score says
+    r = compare_thresholds(groups, y, s, n_repeats=60)
+    assert r["oos_gain_mean"] > 500 and r["oos_share_better"] > 0.95
+
+
+def test_compare_thresholds_is_reproducible() -> None:
+    from src.models.segment_thresholds import compare_thresholds
+
+    groups, y, s = _scored_groups(1500)
+    assert compare_thresholds(groups, y, s, n_repeats=10) == compare_thresholds(
+        groups, y, s, n_repeats=10
+    )

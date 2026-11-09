@@ -33,6 +33,7 @@ offers cost money, so they should go to customers who are both **likely to leave
 
 - The PR-AUC gain is +0.030, with a paired bootstrap 95% CI of **[+0.007, +0.052]**.
 - **Robustness:** 5×5 repeated CV on train + validation gives a smaller gain of **+0.011** (95% CI [−0.006, +0.027]), so the edge over logistic regression is small and not statistically firm. Run `python -m src.models.repeated_cv`.
+- **Group thresholds:** separate thresholds per customer group do not pay on unseen customers (average −93 to −159 per 1,000; better in only about a quarter of splits), so one global threshold is kept. Run `python -m src.models.segment_thresholds`.
 - **Calibrated:** predicted churn in each risk tier is close to actual churn (High 58.3% vs 58.6%, Medium 33.3% vs 27.0% on only 111 customers, Low 8.9% vs 8.1%). Calibration error fell from 0.149 to 0.033.
 
 | Targeting strategy (1,057 test customers) | Profit |
