@@ -1,0 +1,42 @@
+[
+  {
+    "group": "gender",
+    "global_threshold": 0.32,
+    "theory_threshold": 0.3333,
+    "in_sample_gain": 0.0,
+    "oos_gain_mean": -158.7036,
+    "oos_gain_p05": -618.1089,
+    "oos_gain_p95": 183.7621,
+    "oos_share_better": 0.24
+  },
+  {
+    "group": "SeniorCitizen",
+    "global_threshold": 0.32,
+    "theory_threshold": 0.3333,
+    "in_sample_gain": 16.7056,
+    "oos_gain_mean": -108.6702,
+    "oos_gain_p05": -551.2863,
+    "oos_gain_p95": 235.5496,
+    "oos_share_better": 0.24
+  },
+  {
+    "group": "Partner",
+    "global_threshold": 0.32,
+    "theory_threshold": 0.3333,
+    "in_sample_gain": 0.0,
+    "oos_gain_mean": -108.6702,
+    "oos_gain_p05": -501.1694,
+    "oos_gain_p95": 319.0778,
+    "oos_share_better": 0.25
+  },
+  {
+    "group": "Dependents",
+    "global_threshold": 0.32,
+    "theory_threshold": 0.3333,
+    "in_sample_gain": 16.7056,
+    "oos_gain_mean": -92.7999,
+    "oos_gain_p05": -469.4287,
+    "oos_gain_p95": 317.4073,
+    "oos_share_better": 0.225
+  }
+]

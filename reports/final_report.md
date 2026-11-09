@@ -176,6 +176,23 @@ Out-of-fold calibrated scores on train + validation (test set untouched), today'
 
 Full table: `reports/metrics/subgroup_report.csv`.
 
+### Would separate thresholds per group help?
+
+One way to narrow the recall gaps above is a different threshold for each group. Tested with `python -m src.models.segment_thresholds` (out-of-fold calibrated scores on train + validation, test set untouched, placeholder costs). Thresholds are chosen on a random half of the customers and the profit is measured on the other half, repeated 200 times, because choosing and judging on the same rows only measures how well a threshold fits noise.
+
+| Group split by | Gain if judged on the same rows | Gain on unseen rows (average, per 1,000 customers) | 90% range | Better than one threshold in |
+|---|---|---|---|---|
+| Gender | +0 | **−159** | −618 to +184 | 24% of splits |
+| Senior citizen | +17 | **−109** | −551 to +236 | 24% of splits |
+| Partner | +0 | **−109** | −501 to +319 | 25% of splits |
+| Dependents | +17 | **−93** | −469 to +317 | 22% of splits |
+
+- **No profit case for group thresholds.** On unseen customers they lose money on average and win only about a quarter of the time. This matches the theory: for a calibrated model the best rule is the same for everyone (contact when the probability is at least 50 / (500 × 0.30) = 0.33), and calibration holds in every group (above). The extra thresholds only fit noise.
+- **The gap in recall is not a profit problem.** It comes from groups having different churn rates. If the business wants to reach a group more evenly (for example Dependents: yes at 50.9% recall), that is a fairness choice with a known cost, not a way to earn more. Make it deliberately, and note that using age or family status to set who gets an offer may need legal review.
+- **This would change if a group were miscalibrated.** The unit tests show per-group thresholds do pay when one group's scores are far off; the check above is how to notice that after retraining.
+
+Full table: `reports/metrics/segment_thresholds.csv`.
+
 ---
 
 ## 6. Limitations
