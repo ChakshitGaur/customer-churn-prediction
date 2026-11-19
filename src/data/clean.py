@@ -45,14 +45,19 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     Raises:
         ValueError: If blank ``TotalCharges`` appear for customers with tenure > 0 or missing
-            tenure (the 0-fill rule no longer holds), or if ``Churn`` has missing or
-            unrecognised values.
+            tenure (the 0-fill rule no longer holds), if ``Churn`` has missing or
+            unrecognised values, or if ``SeniorCitizen`` is not 0/1.
     """
     out = df.copy()
 
     text_cols = out.select_dtypes(include=["object", "string"]).columns
     for col in text_cols:
         out[col] = out[col].str.strip()
+
+    if "SeniorCitizen" in out.columns:
+        senior = pd.to_numeric(out["SeniorCitizen"], errors="coerce")
+        if senior.isna().any() or not senior.isin([0, 1]).all():
+            raise ValueError("SeniorCitizen must be 0 or 1 in every row (found other values)")
 
     total = out["TotalCharges"]
     blank = total.isna()

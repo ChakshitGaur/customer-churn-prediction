@@ -16,6 +16,12 @@ import pandas as pd
 
 PSI_MODERATE: float = 0.10
 PSI_MAJOR: float = 0.25
+# PSI is noisy on small batches. Measured on this project's data with NO real drift (random
+# batches of the test set against training, 150 draws each): a "major" flag on at least one
+# feature appeared for 100% of batches of 10, 92% of 30, 57% of 50, 0.7% of 100 and 0% of 200+;
+# a "moderate" flag for 98% of 50, 77% of 100, 8.7% of 200 and 1.3% of 300. Below this size the
+# dashboard does not give a drift verdict.
+MIN_DRIFT_ROWS: int = 200
 EPS: float = 1e-4  # floor for empty bins so the log stays finite
 
 MONITORED_FEATURES: list[str] = [

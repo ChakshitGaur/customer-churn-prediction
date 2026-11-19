@@ -438,3 +438,61 @@ def test_compare_thresholds_is_reproducible() -> None:
     assert compare_thresholds(groups, y, s, n_repeats=10) == compare_thresholds(
         groups, y, s, n_repeats=10
     )
+
+
+# --- raw-data validation order ------------------------------------------------------
+
+
+def test_load_validation_accepts_padded_labels_that_clean_will_strip() -> None:
+    from src.data.load import validate_schema
+
+    raw = make_synthetic_telco(40)
+    raw["Churn"] = " " + raw["Churn"] + "  "
+    validate_schema(raw)  # padding is not an error ...
+    assert set(clean(raw)["Churn"]) <= {0, 1}  # ... because clean() strips it
+    with pytest.raises(ValueError, match="Unexpected Churn labels"):
+        validate_schema(raw.assign(Churn=raw["Churn"].str.lower()))
+
+
+@pytest.mark.parametrize("bad", ["Yes", "2", "", "1.5"])
+def test_clean_rejects_senior_citizen_values_outside_zero_one(bad: str) -> None:
+    raw = make_synthetic_telco(40)
+    raw["SeniorCitizen"] = raw["SeniorCitizen"].astype(str)
+    raw.loc[3, "SeniorCitizen"] = bad
+    with pytest.raises(ValueError, match="SeniorCitizen must be 0 or 1"):
+        clean(raw)
+
+
+def test_clean_accepts_senior_citizen_as_int_or_text() -> None:
+    raw = make_synthetic_telco(40)
+    assert len(clean(raw)) == 40
+    assert len(clean(raw.assign(SeniorCitizen=raw["SeniorCitizen"].astype(str)))) == 40
+
+
+# --- drift verdict needs a big enough batch -----------------------------------------
+
+
+def test_drift_check_needs_a_minimum_batch_size() -> None:
+    from src.models.monitor import MIN_DRIFT_ROWS
+
+    assert not helpers.drift_check_reliable(1)
+    assert not helpers.drift_check_reliable(MIN_DRIFT_ROWS - 1)
+    assert helpers.drift_check_reliable(MIN_DRIFT_ROWS) and helpers.drift_check_reliable(5000)
+
+
+def test_psi_false_alarms_on_small_batches_but_not_at_the_minimum_size() -> None:
+    """The reason for MIN_DRIFT_ROWS: no-drift batches look like drift when they are tiny."""
+    from src.models.monitor import MIN_DRIFT_ROWS
+
+    rng = np.random.default_rng(config.SEED)
+    ref = pd.DataFrame({"x": rng.normal(size=5000), "c": rng.choice(list("abcd"), 5000)})
+
+    def share_major(n: int, draws: int = 60) -> float:
+        hits = 0
+        for _ in range(draws):
+            cur = ref.sample(n, random_state=int(rng.integers(1e9)))
+            hits += (drift_report(ref, cur, features=["x", "c"])["status"] == "major").any()
+        return hits / draws
+
+    assert share_major(10) > 0.5  # tiny batches are flagged by chance
+    assert share_major(MIN_DRIFT_ROWS) < 0.1  # at the minimum size the alarm is trustworthy
