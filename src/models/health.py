@@ -38,10 +38,28 @@ logger = get_logger(__name__)
 def _load(path: Path, problems: list[str]) -> dict[str, Any] | None:
     """Read a JSON output, recording a problem (not raising) if it is missing or unreadable."""
     try:
-        return json.loads(path.read_text())
+        data = json.loads(path.read_text())
     except (OSError, ValueError) as err:
         problems.append(f"cannot read {path.name}: {err}. Did the pipeline finish?")
         return None
+    if not isinstance(data, dict):
+        problems.append(f"{path.name} does not hold a JSON object (found {type(data).__name__})")
+        return None
+    return data
+
+
+def _read_risk_list(path: Path, problems: list[str]) -> pd.DataFrame | None:
+    """Read the ranked customer list, recording a problem if it is empty or malformed."""
+    try:
+        risk = pd.read_csv(path, dtype={"customerID": str})
+    except (OSError, ValueError) as err:  # includes EmptyDataError and ParserError
+        problems.append(f"cannot read {path.name}: {err}")
+        return None
+    missing = {"customerID", "churn_probability"} - set(risk.columns)
+    if missing:
+        problems.append(f"{path.name} is missing columns {sorted(missing)}")
+        return None
+    return risk
 
 
 def check_outputs(
@@ -108,10 +126,12 @@ def check_outputs(
         if summary is not None and card.get("model", {}).get("name") != summary.get("final_model"):
             problems.append("the model card names a different model than the run selected")
 
+    risk = None
     if not risk_list_file.exists():
         problems.append(f"{risk_list_file.name} was not written")
     else:
-        risk = pd.read_csv(risk_list_file, dtype={"customerID": str})
+        risk = _read_risk_list(risk_list_file, problems)
+    if risk is not None:
         prob = risk["churn_probability"]
         expected = None if splits is None else splits.get("test", {}).get("rows")
         if expected is not None and len(risk) != expected:

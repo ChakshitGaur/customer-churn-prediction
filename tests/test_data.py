@@ -80,6 +80,7 @@ def _raw_rows() -> pd.DataFrame:
     base = {col: ["x", "x", "x"] for col in EXPECTED_COLUMNS}
     base.update(
         customerID=["A", "B", "C"],
+        SeniorCitizen=[0, 1, 0],
         tenure=[0, 5, 10],
         MonthlyCharges=[20.0, 30.0, 40.0],
         TotalCharges=[" ", "150.0", " 400.5 "],

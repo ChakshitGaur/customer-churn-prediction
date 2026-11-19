@@ -203,3 +203,36 @@ def test_run_health_check_exit_codes(run: dict[str, Path], monkeypatch: pytest.M
     assert run_health_check() == 0
     run["risk"].unlink()
     assert run_health_check() == 1
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("", "cannot read customer_risk_list.csv"),
+        ("customerID,churn_probability\n", None),  # header only: unhealthy, but must not crash
+        ("a,b\n1,2\n", "missing columns"),
+        ('customerID,churn_probability\n"unterminated,0.5\n', None),
+    ],
+    ids=["empty-file", "header-only", "wrong-columns", "broken-quoting"],
+)
+def test_malformed_risk_list_is_reported_not_raised(
+    run: dict[str, Path], content: str, message: str | None
+) -> None:
+    run["risk"].write_text(content)
+    problems = _check(run)
+    assert problems  # unhealthy ...
+    if message:
+        assert any(message in p for p in problems)  # ... and said so, instead of a traceback
+
+
+@pytest.mark.parametrize("text", ["[]", "null", '"text"', "3"])
+def test_json_output_that_is_not_an_object_is_reported(run: dict[str, Path], text: str) -> None:
+    (run["metrics"] / "model_summary.json").write_text(text)
+    assert any("does not hold a JSON object" in p for p in _check(run))
+
+
+def test_raw_data_checksum_flag_is_enforced(run: dict[str, Path]) -> None:
+    _write_json(
+        run["models"] / "model_card.json", lambda d: d["data"].update(matches_expected_source=False)
+    )
+    assert any("checksum differs" in p for p in _check(run))

@@ -44,6 +44,8 @@ Join last month's scores to who actually churned. **Exclude customers who receiv
 
 Monthly samples are small (about 1,000 customers), so judge trends over **2–3 months**, not single readings. Report bootstrap intervals where it matters.
 
+**Minimum batch size for drift checks: 200 customers** (`MIN_DRIFT_ROWS`). With no real drift, random batches of 30 customers were flagged "major" on at least one feature 92% of the time, and batches of 50 were flagged 57% of the time; at 200 it was 0%. The dashboard therefore gives no drift verdict below 200 customers.
+
 ## 3. After each retention campaign
 
 The model predicts **who will churn**, not **who an offer will save**. Only a controlled test shows whether the actions work.

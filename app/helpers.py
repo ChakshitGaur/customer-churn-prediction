@@ -36,6 +36,7 @@ from src.data.load import EXPECTED_COLUMNS
 from src.explain.shap_analysis import compute_shap, group_shap, plot_customer_waterfall
 from src.features.pipeline import RAW_CATEGORICAL
 from src.models.model_card import file_sha256, library_versions
+from src.models.monitor import MIN_DRIFT_ROWS
 from src.models.predict import CALIBRATED_MODEL_FILE, CalibratedModel, build_risk_list
 
 FEATURE_COLUMNS: list[str] = [c for c in EXPECTED_COLUMNS if c not in (ID_COL, TARGET_COL)]
@@ -422,6 +423,11 @@ def read_csv_upload(data: bytes) -> pd.DataFrame:
             "The file looks semicolon-, tab- or pipe-separated; save it as a comma-separated CSV"
         )
     return df
+
+
+def drift_check_reliable(n_rows: int) -> bool:
+    """Whether a batch is big enough for a PSI drift verdict (see ``MIN_DRIFT_ROWS``)."""
+    return n_rows >= MIN_DRIFT_ROWS
 
 
 def score(model: CalibratedModel, customers: pd.DataFrame) -> pd.DataFrame:

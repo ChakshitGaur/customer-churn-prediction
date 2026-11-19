@@ -78,6 +78,7 @@ def validate_schema(df: pd.DataFrame) -> None:
     if missing:
         raise ValueError(f"Missing expected columns: {sorted(missing)}")
 
-    labels = set(df[TARGET_COL].dropna().unique())
+    # Compare trimmed labels: clean() strips whitespace, so " Yes " is valid raw data.
+    labels = {str(v).strip() for v in df[TARGET_COL].dropna().unique()}
     if not labels <= {"Yes", "No"}:
         raise ValueError(f"Unexpected {TARGET_COL} labels: {sorted(labels)}")

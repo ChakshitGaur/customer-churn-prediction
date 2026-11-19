@@ -16,7 +16,12 @@ import streamlit as st  # noqa: E402
 
 from app import helpers  # noqa: E402
 from src.data.clean import clean  # noqa: E402
-from src.models.monitor import PSI_MAJOR, PSI_MODERATE, drift_report  # noqa: E402
+from src.models.monitor import (  # noqa: E402
+    MIN_DRIFT_ROWS,
+    PSI_MAJOR,
+    PSI_MODERATE,
+    drift_report,
+)
 from src.models.predict import load_calibrated  # noqa: E402
 
 st.set_page_config(page_title="Churn Risk Dashboard", page_icon="📉", layout="wide")
@@ -216,10 +221,16 @@ with tab_batch:
             f"PSI < {PSI_MODERATE} stable · {PSI_MODERATE}–{PSI_MAJOR} investigate · "
             f"≥ {PSI_MAJOR} major shift. See reports/monitoring_plan.md."
         )
-        drift = drift_report(get_reference(), batch)
-        st.dataframe(drift, hide_index=True)
-        if (drift["status"] == "major").any():
-            st.warning("Major drift detected: scores for this batch may be unreliable.")
+        if not helpers.drift_check_reliable(len(batch)):
+            st.info(
+                f"Drift is not checked for fewer than {MIN_DRIFT_ROWS} customers: PSI on a small "
+                f"batch flags drift by chance (this batch has {len(batch)})."
+            )
+        else:
+            drift = drift_report(get_reference(), batch)
+            st.dataframe(drift, hide_index=True)
+            if (drift["status"] == "major").any():
+                st.warning("Major drift detected: scores for this batch may be unreliable.")
 
 # --- Tab 3: insights -------------------------------------------------------------------
 with tab_insights:
