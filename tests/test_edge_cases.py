@@ -496,3 +496,73 @@ def test_psi_false_alarms_on_small_batches_but_not_at_the_minimum_size() -> None
 
     assert share_major(10) > 0.5  # tiny batches are flagged by chance
     assert share_major(MIN_DRIFT_ROWS) < 0.1  # at the minimum size the alarm is trustworthy
+
+
+# --- unexpected category values (warning, not error) --------------------------------
+
+
+def test_expected_categories_match_the_dashboard_form_options() -> None:
+    """One list of valid values for the pipeline, one for the form: they must not drift apart."""
+    from src.data.load import EXPECTED_CATEGORIES
+    from src.features.pipeline import RAW_CATEGORICAL
+
+    assert set(EXPECTED_CATEGORIES) == set(RAW_CATEGORICAL)
+    for col, allowed in EXPECTED_CATEGORIES.items():
+        assert set(allowed) == {str(v) for v in helpers.FORM_OPTIONS[col]}, col
+
+
+def test_clean_synthetic_data_has_no_unexpected_categories() -> None:
+    from src.data.load import unexpected_categories
+
+    assert unexpected_categories(make_synthetic_telco(300)) == {}
+
+
+def test_unexpected_categories_are_counted_and_trimmed_and_missing_ignored() -> None:
+    from src.data.load import unexpected_categories
+
+    raw = make_synthetic_telco(60)
+    raw["Contract"] = raw["Contract"].astype(object)
+    raw.loc[:4, "Contract"] = "Weekly"
+    raw.loc[5, "Contract"] = " One year "  # padding is fine: clean() strips it
+    raw.loc[6, "Contract"] = None  # missing is not an unexpected category
+    raw.loc[7:8, "gender"] = "Other"
+    raw.loc[9, "gender"] = "male"  # wrong case is reported
+    found = unexpected_categories(raw)
+    assert found == {"Contract": {"Weekly": 5}, "gender": {"Other": 2, "male": 1}}
+
+
+def test_unexpected_categories_ignore_absent_columns() -> None:
+    from src.data.load import unexpected_categories
+
+    assert unexpected_categories(make_synthetic_telco(30).drop(columns=["Contract"])) == {}
+
+
+def test_load_raw_warns_about_unexpected_categories_but_still_loads(
+    tmp_path, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    from src.data.load import load_raw
+
+    raw = make_synthetic_telco(50)
+    raw["Contract"] = raw["Contract"].astype(object)
+    raw.loc[:2, "Contract"] = "Weekly"
+    path = tmp_path / "telco.csv"
+    raw.to_csv(path, index=False)
+    with caplog.at_level(logging.WARNING):
+        loaded = load_raw(path)
+    assert len(loaded) == 50  # a warning, not an error
+    messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(messages) == 1 and "Contract" in messages[0] and "'Weekly' (3 rows)" in messages[0]
+
+
+def test_load_raw_is_silent_on_valid_data(tmp_path, caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    from src.data.load import load_raw
+
+    path = tmp_path / "telco.csv"
+    make_synthetic_telco(50).to_csv(path, index=False)
+    with caplog.at_level(logging.WARNING):
+        load_raw(path)
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
